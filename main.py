@@ -19,14 +19,13 @@ from utils.utils_log import Monitor, TimeUse
 from models.linear import linear
 from models.mlp import mlp, mlp_phi
 
-
 # settings
 # run device gpu:x or cpu
 args = extract_args()
-device = torch.device("cuda:"+str(args.gpu) if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda:" + str(args.gpu) if torch.cuda.is_available() else 'cpu')
 # log file and model weight save path
 save_folder = "results/" + args.dir
-save_file = "results/" + args.dir + args.sn + '.log' 
+save_file = "results/" + args.dir + args.sn + '.log'
 if not os.path.exists(save_folder):
     os.mkdir(save_folder)
 
@@ -40,8 +39,8 @@ def warm_up_benchmark(config, model, train_loader, test_X, test_Y):
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
             phi, outputs = model(features)
-            L_ce, new_labels = partial_loss(outputs, partial_weight[indexes,:].clone().detach(), None)
-            partial_weight[indexes,:] = new_labels.clone().detach()
+            L_ce, new_labels = partial_loss(outputs, partial_weight[indexes, :].clone().detach(), None)
+            partial_weight[indexes, :] = new_labels.clone().detach()
             opt.zero_grad()
             L_ce.backward()
             opt.step()
@@ -65,14 +64,15 @@ def warm_up_realworld(config, model, train_loader, test_X, test_Y):
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
             outputs = model(features)
-            L_ce, new_labels = partial_loss(outputs, partial_weight[indexes,:].clone().detach(), None)
-            partial_weight[indexes,:] = new_labels.clone().detach()
+            L_ce, new_labels = partial_loss(outputs, partial_weight[indexes, :].clone().detach(), None)
+            partial_weight[indexes, :] = new_labels.clone().detach()
             opt.zero_grad()
             L_ce.backward()
             opt.step()
     test_acc = evaluate_realworld(model, test_X, test_Y, device)
     print("After warm up, test acc: {:.4f}".format(test_acc))
     return model, partial_weight
+
 
 # train benchmark
 def train_benchmark(config):
@@ -92,10 +92,12 @@ def train_benchmark(config):
             partialize_net = mlp_phi(num_features, num_classes)
         else:
             partialize_net = deepcopy(net)
-    train_p_Y, avgC = partialize(config, train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y, model=partialize_net, device=device, weight_path=os.path.abspath("weights/"+config.ds+"/"+"400.pt"))
-    print("Net:\n",net)
-    print("Encoder:\n",enc)
-    print("Decoder:\n",dec)
+    train_p_Y, avgC = partialize(config, train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y,
+                                 model=partialize_net, device=device,
+                                 weight_path=os.path.abspath("weights/" + config.ds + "/" + "400.pt"))
+    print("Net:\n", net)
+    print("Encoder:\n", enc)
+    print("Decoder:\n", dec)
     print("The Training Set has {} samples and {} classes".format(num_samples, num_features))
     print("Average Candidate Labels is {:.4f}".format(avgC))
     train_loader = create_train_loader(train_X, train_Y, train_p_Y)
@@ -107,7 +109,8 @@ def train_benchmark(config):
     # compute adj matrix
     print("Compute adj maxtrix or Read.")
     with TimeUse("Adj Maxtrix"):
-        adj = gen_adj_matrix2(feature_extracted.cpu().numpy(), k=config.knn, path=os.path.abspath("middle/adjmatrix/"+args.dt+"/"+args.ds+".npy"))
+        adj = gen_adj_matrix2(feature_extracted.cpu().numpy(), k=config.knn,
+                              path=os.path.abspath("middle/adjmatrix/" + args.dt + "/" + args.ds + ".npy"))
     with TimeUse("Adj to Dense"):
         A = adj.to_dense()
     with TimeUse("Adj to Device"):
@@ -119,25 +122,27 @@ def train_benchmark(config):
     # training
     if config.ds != "cifar10":
         print("Use SGD with 0.9 momentum")
-        opt = torch.optim.SGD(list(net.parameters())+list(enc.parameters())+list(dec.parameters()), lr=args.lr, weight_decay=args.wd, momentum=0.9)
+        opt = torch.optim.SGD(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()),
+                              lr=args.lr, weight_decay=args.wd, momentum=0.9)
     else:
         print("Use Adam.")
-        opt = torch.optim.Adam(list(net.parameters())+list(enc.parameters())+list(dec.parameters()), lr=args.lr, weight_decay=args.wd)
+        opt = torch.optim.Adam(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()), lr=args.lr,
+                               weight_decay=args.wd)
     mit = Monitor(num_samples, num_classes)
     d_array = deepcopy(o_array)
     for epoch in range(0, args.ep):
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
             _, outputs = net(features)
-            _, alpha = enc(embedding[indexes, :])
+            _, alpha = enc(embedding[indexes, :])   # embedding
             s_alpha = F.softmax(alpha, dim=1)
             revised_alpha = torch.zeros_like(targets)
-            revised_alpha[o_array[indexes,:]>0] = 1.0
+            revised_alpha[o_array[indexes, :] > 0] = 1.0
             s_alpha = s_alpha * revised_alpha
             s_alpha_sum = s_alpha.clone().detach().sum(dim=1, keepdim=True)
-            s_alpha = s_alpha / s_alpha_sum + 1e-2
-            L_d, new_d = partial_loss(alpha, o_array[indexes,:], None)
-            alpha = torch.exp(alpha/4)
+            s_alpha = s_alpha / s_alpha_sum + 1e-2      # the label distribution
+            L_d, new_d = partial_loss(alpha, o_array[indexes, :], None)
+            alpha = torch.exp(alpha / 4)
             alpha = F.hardtanh(alpha, min_val=1e-2, max_val=30)
             L_alpha = alpha_loss(alpha, prior_alpha)
             dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
@@ -147,19 +152,20 @@ def train_benchmark(config):
             A_hat = F.softmax(dot_product_decode(d), dim=1)
             L_recx = 0.01 * F.mse_loss(x_hat, features)
             L_recy = 0.01 * F.binary_cross_entropy_with_logits(d, targets)
-            L_recA = F.mse_loss(A_hat, A[indexes,:][:,indexes].to(device))
+            L_recA = F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
             L_rec = L_recx + L_recy + L_recA
-            L_o, new_o = partial_loss(outputs, d_array[indexes,:], None)
-            L = config.alpha*L_rec + config.beta*L_alpha + config.gamma * L_d + config.theta * L_o
+            L_o, new_o = partial_loss(outputs, d_array[indexes, :], None)
+            L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
             opt.zero_grad()
             L.backward()
             opt.step()
             new_d = revised_target(d, new_d)
-            new_d = config.correct * new_d + (1 - config.correct) * o_array[indexes,:]
-            d_array[indexes,:] = new_d.clone().detach()
-            o_array[indexes,:] = new_o.clone().detach()
+            new_d = config.correct * new_d + (1 - config.correct) * o_array[indexes, :]
+            d_array[indexes, :] = new_d.clone().detach()
+            o_array[indexes, :] = new_o.clone().detach()
         test_acc = evaluate_benchmark(net, test_X, test_Y, device)
         print("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
+
 
 def train_realworld(config):
     avg_acc = 0.0
@@ -175,18 +181,19 @@ def train_realworld(config):
         with TimeUse("Create Model"):
             net, enc, dec = create_model(args, num_features=num_features, num_classes=num_classes)
             net, enc, dec = map(lambda x: x.to(device), (net, enc, dec))
-        print("Net:\n",net)
-        print("Encoder:\n",enc)
-        print("Decoder:\n",dec)
+        print("Net:\n", net)
+        print("Encoder:\n", enc)
+        print("Decoder:\n", dec)
         print("The Training Set has {} samples and {} classes".format(num_samples, num_features))
-        print("Average Candidate Labels is {:.4f}".format(train_p_Y.sum().item()/num_samples))
-        train_loader = create_train_loader(train_X, train_Y, train_p_Y, batch_size=config.bs)  
+        print("Average Candidate Labels is {:.4f}".format(train_p_Y.sum().item() / num_samples))
+        train_loader = create_train_loader(train_X, train_Y, train_p_Y, batch_size=config.bs)
         # warm up
         net, o_array = warm_up_realworld(config, net, train_loader, test_X, test_Y)
         # compute adj matrix
         print("Compute adj maxtrix or Read.")
         with TimeUse("Adj Maxtrix"):
-            adj = gen_adj_matrix2(train_X.cpu().numpy(), k=config.knn, path=os.path.abspath("middle/adjmatrix/"+args.dt+"/"+args.ds+".npy"))
+            adj = gen_adj_matrix2(train_X.cpu().numpy(), k=config.knn,
+                                  path=os.path.abspath("middle/adjmatrix/" + args.dt + "/" + args.ds + ".npy"))
         with TimeUse("Adj to Dense"):
             A = adj.to_dense()
         with TimeUse("Adj to Device"):
@@ -196,7 +203,8 @@ def train_realworld(config):
             embedding = train_X.to(device)
         prior_alpha = torch.Tensor(1, num_classes).fill_(1.0).to(device)
         # training
-        opt = torch.optim.SGD(list(net.parameters())+list(enc.parameters())+list(dec.parameters()), lr=args.lr, weight_decay=args.wd, momentum=0.9)
+        opt = torch.optim.SGD(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()), lr=args.lr,
+                              weight_decay=args.wd, momentum=0.9)
         d_array = deepcopy(o_array)
         for epoch in range(0, args.ep):
             for features, targets, trues, indexes in train_loader:
@@ -205,12 +213,12 @@ def train_realworld(config):
                 alpha = enc(embedding[indexes, :])
                 s_alpha = F.softmax(alpha, dim=1)
                 revised_alpha = torch.zeros_like(targets)
-                revised_alpha[o_array[indexes,:]>0] = 1.0
+                revised_alpha[o_array[indexes, :] > 0] = 1.0
                 s_alpha = s_alpha * revised_alpha
                 s_alpha_sum = s_alpha.clone().detach().sum(dim=1, keepdim=True)
                 s_alpha = s_alpha / s_alpha_sum + 1e-2
-                L_d, new_d = partial_loss(alpha, o_array[indexes,:], None)
-                alpha = torch.exp(alpha/4)
+                L_d, new_d = partial_loss(alpha, o_array[indexes, :], None)
+                alpha = torch.exp(alpha / 4)
                 alpha = F.hardtanh(alpha, min_val=1e-2, max_val=30)
                 L_alpha = alpha_loss(alpha, prior_alpha)
                 dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
@@ -220,21 +228,21 @@ def train_realworld(config):
                 A_hat = F.softmax(dot_product_decode(d), dim=1)
                 L_recx = F.mse_loss(x_hat, features)
                 L_recy = 0.01 * F.binary_cross_entropy_with_logits(d, targets)
-                L_recA = F.mse_loss(A_hat, A[indexes,:][:,indexes].to(device))
+                L_recA = F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
                 L_rec = L_recx + L_recy + L_recA
-                L_o, new_o = partial_loss(outputs, d_array[indexes,:], None)
-                L = config.alpha*L_rec + config.beta*L_alpha + config.gamma * L_d + config.theta * L_o
+                L_o, new_o = partial_loss(outputs, d_array[indexes, :], None)
+                L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
                 opt.zero_grad()
                 L.backward()
                 opt.step()
                 new_d = revised_target(d, new_d)
-                new_d = config.correct * new_d + (1 - config.correct) * o_array[indexes,:]
-                d_array[indexes,:] = new_d.clone().detach()
-                o_array[indexes,:] = new_o.clone().detach()
+                new_d = config.correct * new_d + (1 - config.correct) * o_array[indexes, :]
+                d_array[indexes, :] = new_d.clone().detach()
+                o_array[indexes, :] = new_o.clone().detach()
             test_acc = evaluate_realworld(net, test_X, test_Y, device)
             print("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
         avg_acc = avg_acc + test_acc
-    print("Avg Acc: {:.4f}".format(avg_acc/5))
+    print("Avg Acc: {:.4f}".format(avg_acc / 5))
 
 
 def train_realworld2(config):
@@ -251,18 +259,19 @@ def train_realworld2(config):
         with TimeUse("Create Model"):
             net, enc, dec = create_model(args, num_features=num_features, num_classes=num_classes)
             net, enc, dec = map(lambda x: x.to(device), (net, enc, dec))
-        print("Net:\n",net)
-        print("Encoder:\n",enc)
-        print("Decoder:\n",dec)
+        print("Net:\n", net)
+        print("Encoder:\n", enc)
+        print("Decoder:\n", dec)
         print("The Training Set has {} samples and {} classes".format(num_samples, num_features))
-        print("Average Candidate Labels is {:.4f}".format(train_p_Y.sum().item()/num_samples))
-        train_loader = create_train_loader(train_X, train_Y, train_p_Y, batch_size=config.bs)  
+        print("Average Candidate Labels is {:.4f}".format(train_p_Y.sum().item() / num_samples))
+        train_loader = create_train_loader(train_X, train_Y, train_p_Y, batch_size=config.bs)
         # warm up
         net, o_array = warm_up_realworld(config, net, train_loader, test_X, test_Y)
         # compute adj matrix
         print("Compute adj maxtrix or Read.")
         with TimeUse("Adj Maxtrix"):
-            adj = gen_adj_matrix2(train_X.cpu().numpy(), k=config.knn, path=os.path.abspath("middle/adjmatrix/"+args.dt+"/"+args.ds+".npy"))
+            adj = gen_adj_matrix2(train_X.cpu().numpy(), k=config.knn,
+                                  path=os.path.abspath("middle/adjmatrix/" + args.dt + "/" + args.ds + ".npy"))
         with TimeUse("Adj to Dense"):
             A = adj.to_dense()
         with TimeUse("Adj to Device"):
@@ -273,7 +282,8 @@ def train_realworld2(config):
         prior_alpha = torch.Tensor(1, num_classes).fill_(1.0).to(device)
         # training
         # opt = torch.optim.SGD(list(net.parameters())+list(enc.parameters())+list(dec.parameters()), lr=args.lr, weight_decay=args.wd, momentum=0.9)
-        opt = torch.optim.Adam(list(net.parameters())+list(enc.parameters())+list(dec.parameters()), lr=args.lr, weight_decay=args.wd)
+        opt = torch.optim.Adam(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()), lr=args.lr,
+                               weight_decay=args.wd)
         d_array = deepcopy(o_array)
         features, targets = map(lambda x: x.to(device), (train_X, train_p_Y))
         for epoch in range(0, args.ep):
@@ -281,12 +291,12 @@ def train_realworld2(config):
             alpha = enc(embedding)
             s_alpha = F.softmax(alpha, dim=1)
             revised_alpha = torch.zeros_like(targets)
-            revised_alpha[o_array>0] = 1.0
+            revised_alpha[o_array > 0] = 1.0
             s_alpha = s_alpha * revised_alpha
             s_alpha_sum = s_alpha.clone().detach().sum(dim=1, keepdim=True)
             s_alpha = s_alpha / s_alpha_sum + 1e-2
             L_d, new_d = partial_loss(alpha, o_array, None)
-            alpha = torch.exp(alpha/4)
+            alpha = torch.exp(alpha / 4)
             alpha = F.hardtanh(alpha, min_val=1e-2, max_val=30)
             L_alpha = alpha_loss(alpha, prior_alpha)
             dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
@@ -299,7 +309,7 @@ def train_realworld2(config):
             L_recA = F.mse_loss(A_hat, A.to(device))
             L_rec = L_recx + L_recy + L_recA
             L_o, new_o = partial_loss(outputs, d_array, None)
-            L = config.alpha*L_rec + config.beta*L_alpha + config.gamma * L_d + config.theta * L_o
+            L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
             opt.zero_grad()
             L.backward()
             opt.step()
@@ -310,10 +320,7 @@ def train_realworld2(config):
             test_acc = evaluate_realworld(net, test_X, test_Y, device)
             print("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
         avg_acc = avg_acc + test_acc
-    print("Avg Acc: {:.4f}".format(avg_acc/5))
-
-
-
+    print("Avg Acc: {:.4f}".format(avg_acc / 5))
 
 
 # enter

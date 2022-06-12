@@ -13,7 +13,8 @@ def create_model(config, **args):
                 net = mlp_phi(args['num_features'], args['num_classes'])
         if config.ds in ['cifar10']:
             net = resnet(depth=32, n_outputs = args['num_classes'])
-        enc = deepcopy(net)
+        enc_d = deepcopy(net)
+        enc_z = deepcopy(net)
         dec = VAE_Bernulli_Decoder(args['num_classes'], args['num_features'], args['num_features'])
         return net, enc, dec
     if config.dt == "realworld":

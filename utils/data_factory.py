@@ -16,17 +16,17 @@ def extract_data(config, **args):
     if config.dt == "benchmark":
         if config.ds == "mnist":
             train_dataset = dsets.MNIST(root="data/" + config.dt, train=True, transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]), download=False)
+                [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]), download=True)
             test_dataset = dsets.MNIST(root="data/" + config.dt, train=False, transform=transforms.Compose(
                 [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]))
         if config.ds == "kmnist":
             train_dataset = dsets.KMNIST(root="data/" + config.dt, train=True, transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]), download=False)
+                [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]), download=True)
             test_dataset = dsets.KMNIST(root="data/" + config.dt, train=False, transform=transforms.Compose(
                 [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]))
         if config.ds == "fmnist":
             train_dataset = dsets.FashionMNIST(root="data/" + config.dt, train=True, transform=transforms.Compose(
-                [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]), download=False)
+                [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]), download=True)
             test_dataset = dsets.FashionMNIST(root="data/" + config.dt, train=False, transform=transforms.Compose(
                 [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]))
         if config.ds == "cifar10":

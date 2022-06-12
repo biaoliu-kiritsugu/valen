@@ -1,4 +1,4 @@
-import torch 
+import torch
 import torch.nn.functional as F
 import numpy as np
 
@@ -61,7 +61,7 @@ def threshold_loss(output, target, threshold):
     # revisedY[row_indexes] = revisedY[row_indexes] * 0.0
     # revisedY[row_indexes, col_indexes] = 1.0 
     new_target = revisedY
-    
+
     return loss, new_target, corrected_num
 
 
@@ -101,7 +101,7 @@ def gauss_kl_loss(mu, logvar, eps = 1e-12):
 
 
 def dirichlet_kl_loss(alpha, prior_alpha):
-    KLD = torch.mvlgamma(alpha.sum(1), p=1)-torch.mvlgamma(alpha, p=1).sum(1)-torch.mvlgamma(prior_alpha.sum(1), p=1)+torch.mvlgamma(prior_alpha, p=1).sum(1)+((alpha-prior_alpha)*(torch.digamma(alpha)-torch.digamma(alpha.sum(dim=1, keepdim=True).expand_as(alpha)))).sum(1) 
+    KLD = torch.mvlgamma(alpha.sum(1), p=1)-torch.mvlgamma(alpha, p=1).sum(1)-torch.mvlgamma(prior_alpha.sum(1), p=1)+torch.mvlgamma(prior_alpha, p=1).sum(1)+((alpha-prior_alpha)*(torch.digamma(alpha)-torch.digamma(alpha.sum(dim=1, keepdim=True).expand_as(alpha)))).sum(1)
     return KLD.mean()
 
 
@@ -119,12 +119,12 @@ def dirichlet_kl_loss(alpha, prior_alpha):
 #     return loss.mean()
 
 def kl_loss(output, d, target, eps=1e-8):
-    output = F.softmax(output, dim=1) 
+    output = F.softmax(output, dim=1)
     right_weight = output.clone().detach() * target
     right_weight = right_weight / right_weight.sum(dim=1, keepdim=True)
     right = torch.zeros_like(output)
     left = torch.zeros_like(output)
-    right[target == 1] = ( - right_weight.clone().detach() * torch.log(d + eps))[target == 1] 
+    right[target == 1] = ( - right_weight.clone().detach() * torch.log(d + eps))[target == 1]
     left[target == 1] =  ( - d.clone().detach() * torch.log(output+eps))[target == 1]
     print("output",output[0])
     print("d",d[0])
@@ -145,7 +145,10 @@ def label_loss(d, labels, eps=1e-12):
 
 
 def alpha_loss(alpha, prior_alpha):
-    KLD = torch.mvlgamma(alpha.sum(1), p=1)-torch.mvlgamma(alpha, p=1).sum(1)-torch.mvlgamma(prior_alpha.sum(1), p=1)+torch.mvlgamma(prior_alpha, p=1).sum(1)+((alpha-prior_alpha)*(torch.digamma(alpha)-torch.digamma(alpha.sum(dim=1, keepdim=True).expand_as(alpha)))).sum(1) 
+    KLD = torch.mvlgamma(alpha.sum(1), p=1) - torch.mvlgamma(alpha, p=1).sum(1) \
+          - torch.mvlgamma(prior_alpha.sum(1), p=1) + torch.mvlgamma(prior_alpha, p=1).sum(1) + \
+          ((alpha - prior_alpha) *
+           (torch.digamma(alpha) - torch.digamma(alpha.sum(dim=1, keepdim=True).expand_as(alpha)))).sum(1)
     return KLD.mean()
 
 
@@ -161,9 +164,9 @@ def BetaMAP_loss(output, target, alpha, beta):
 
 def MAP_loss(t_o, c_o, r_t, r_c, targets, alpha, beta, gamma):
     # 从候选集合中随机划分真实标签和候选标签
-    L1_1 = torch.log(t_o) * r_t 
+    L1_1 = torch.log(t_o) * r_t
     # L1_2 = torch.log(c_o) * r_c + torch.log(1 - c_o) * (1 - r_c)
-    L1_1 = (- torch.sum(L1_1))/L1_1.size(0) 
+    L1_1 = (- torch.sum(L1_1))/L1_1.size(0)
     # L1_2 = (- torch.mean(L1_2))
     # L1 = L1_1 + L1_2
     gamma = (gamma - 1) * targets

@@ -43,7 +43,7 @@ class TimeUse(object):
     def __enter__(self):
         self.t = time.time()
     
-    def __exit__(self,exc_type,exc_value,traceback):
+    def __exit__(self, exc_type, exc_value, traceback):
         print("Module {} : Using {} seconds.".format(self.name, time.time()-self.t))
 
 
