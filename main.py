@@ -118,9 +118,9 @@ def train_benchmark(config):
     prior_alpha = torch.Tensor(1, num_classes).fill_(1.0).to(device)
     ## training
     logger.info("Use SGD with 0.9 momentum")
-    opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
-                          list(dec_L.parameters()) + list(dec_phi.parameters()),
+    opt1 = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(dec_L.parameters()),
                           lr=args.lr, weight_decay=args.wd, momentum=0.9)
+    opt2 = torch.optim.Adam(list(enc_z.parameters()) + list(dec_phi.parameters()))
     # if config.ds != "cifar10":
     #     logger.info("Use SGD with 0.9 momentum")
     #     opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
@@ -162,13 +162,16 @@ def train_benchmark(config):
             L_recx = 0.1 * F.mse_loss(x_hat, features)
             L_recy = 0.1 * F.binary_cross_entropy_with_logits(partial_label_hat, targets)
             L_recA = 0.1 * F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
-            L_rec = L_recx + L_recy + L_recA
+            L_recz = 0.1 *torch.sum(1 + z_log_var - z_mu.pow(2) - z_log_var.exp())
+            L_rec = L_recx + L_recy + L_recA + L_recz
             L_o, new_o = partial_loss(outputs, d_array[indexes, :], None)
             # L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
             L = config.alpha * L_rec + config.beta * L_alpha + config.theta * L_o
-            opt.zero_grad()
+            opt1.zero_grad()
+            opt2.zero_grad()
             L.backward()
-            opt.step()
+            opt1.step()
+            opt2.step()
             new_d = revised_target(d, o_array[indexes, :])
             new_d = config.correct * new_d + (1 - config.correct) * o_array[indexes, :]
             d_array[indexes, :] = new_d.clone().detach()
