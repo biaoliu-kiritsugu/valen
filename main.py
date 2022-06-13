@@ -15,26 +15,23 @@ from utils.utils_graph import gen_adj_matrix2
 from utils.utils_loss import partial_loss, alpha_loss, kl_loss, revised_target
 from utils.utils_algo import dot_product_decode
 from utils.metrics import evaluate_benchmark, evaluate_realworld
-from utils.utils_log import Monitor, TimeUse
+from utils.utils_log import Monitor, TimeUse, initLogger
 from models.linear import linear
 from models.mlp import mlp, mlp_phi
 
 # settings
 # run device gpu:x or cpu
 args = extract_args()
-device = torch.device("cuda:" + str(args.gpu) if torch.cuda.is_available() else 'cpu')
-# log file and model weight save path
-save_folder = "results/" + args.dir
-save_file = "results/" + args.dir + args.sn + '.log'
-if not os.path.exists(save_folder):
-    os.mkdir(save_folder)
+device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+logger, save_dir = initLogger(args)
+
 
 
 def warm_up_benchmark(config, model, train_loader, test_X, test_Y):
     opt = torch.torch.optim.SGD(list(model.parameters()), lr=config.lr, weight_decay=config.wd, momentum=0.9)
     partial_weight = train_loader.dataset.train_p_Y.clone().detach().to(device)
     partial_weight = partial_weight / partial_weight.sum(dim=1, keepdim=True)
-    print("Begin warm-up, warm up epoch {}".format(config.warm_up))
+    logger.info("Begin warm-up, warm up epoch {}".format(config.warm_up))
     for _ in range(0, config.warm_up):
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
@@ -45,8 +42,8 @@ def warm_up_benchmark(config, model, train_loader, test_X, test_Y):
             L_ce.backward()
             opt.step()
     test_acc = evaluate_benchmark(model, test_X, test_Y, device)
-    print("After warm up, test acc: {:.4f}".format(test_acc))
-    print("Extract feature.")
+    logger.info("After warm up, test acc: {:.4f}".format(test_acc))
+    logger.info("Extract feature.")
     feature_extracted = torch.zeros((train_loader.dataset.train_X.shape[0], phi.shape[-1])).to(device)
     with torch.no_grad():
         for features, targets, trues, indexes in train_loader:
@@ -59,7 +56,7 @@ def warm_up_realworld(config, model, train_loader, test_X, test_Y):
     opt = torch.torch.optim.SGD(list(model.parameters()), lr=config.lr, weight_decay=config.wd, momentum=0.9)
     partial_weight = train_loader.dataset.train_p_Y.clone().detach().to(device)
     partial_weight = partial_weight / partial_weight.sum(dim=1, keepdim=True)
-    print("Begin warm-up, warm up epoch {}".format(config.warm_up))
+    logger.info("Begin warm-up, warm up epoch {}".format(config.warm_up))
     for _ in range(0, config.warm_up):
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
@@ -70,14 +67,14 @@ def warm_up_realworld(config, model, train_loader, test_X, test_Y):
             L_ce.backward()
             opt.step()
     test_acc = evaluate_realworld(model, test_X, test_Y, device)
-    print("After warm up, test acc: {:.4f}".format(test_acc))
+    logger.info("After warm up, test acc: {:.4f}".format(test_acc))
     return model, partial_weight
 
 
 # train benchmark
 def train_benchmark(config):
     # data and model
-    with TimeUse("Extract Data"):
+    with TimeUse("Extract Data", logger):
         train_X, train_Y, test_X, test_Y = next(extract_data(config))
     num_samples = train_X.shape[0]
     train_X_shape = train_X.shape
@@ -85,7 +82,7 @@ def train_benchmark(config):
     num_features = train_X.shape[-1]
     train_X = train_X.view(train_X_shape)
     num_classes = train_Y.shape[-1]
-    with TimeUse("Create Model"):
+    with TimeUse("Create Model", logger):
         net, enc_d, enc_z, dec_L, dec_phi = create_model(args, num_features=num_features, num_classes=num_classes)
         net, enc_d, enc_z, dec_L, dec_phi = map(lambda x: x.to(device), (net, enc_d, enc_z, dec_L, dec_phi))
         if config.ds != "cifar10":
@@ -95,48 +92,48 @@ def train_benchmark(config):
     train_p_Y, avgC = partialize(config, train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y,
                                  model=partialize_net, device=device,
                                  weight_path=os.path.abspath("partial_weights/" + config.ds + "/" + "400.pt"))
-    print("Net:\n", net)
-    print("Encoder:\n", enc_d, enc_z)
-    print("Decoder:\n", dec_L, dec_phi)
-    print("The Training Set has {} samples and {} classes".format(num_samples, num_features))
-    print("Average Candidate Labels is {:.4f}".format(avgC))
+    logger.info("Net:\n", net)
+    logger.info("Encoder:\n", enc_d, enc_z)
+    logger.info("Decoder:\n", dec_L, dec_phi)
+    logger.info("The Training Set has {} samples and {} classes".format(num_samples, num_features))
+    logger.info("Average Candidate Labels is {:.4f}".format(avgC))
     train_loader = create_train_loader(train_X, train_Y, train_p_Y)
     # warm up
     net, feature_extracted, o_array = warm_up_benchmark(config, net, train_loader, test_X, test_Y)
     if config.partial_type == "feature" and config.ds in ["kmnist", "cifar10"]:
-        print("Copy Net.")
+        logger.info("Copy Net.")
         enc = deepcopy(net)
     # compute adj matrix
-    print("Compute adj maxtrix or Read.")
-    with TimeUse("Adj Maxtrix"):
+    logger.info("Compute adj maxtrix or Read.")
+    with TimeUse("Adj Maxtrix", logger):
         adj = gen_adj_matrix2(feature_extracted.cpu().numpy(), k=config.knn,
                               path=os.path.abspath("middle/adjmatrix/" + args.dt + "/" + args.ds + ".npy"))
-    with TimeUse("Adj to Dense"):
+    with TimeUse("Adj to Dense", logger):
         A = adj.to_dense()
-    with TimeUse("Adj to Device"):
+    with TimeUse("Adj to Device", logger):
         adj = adj.to(device)
     # compute gcn embedding
-    with TimeUse("Spmm"):
+    with TimeUse("Spmm", logger):
         embedding = train_X.to(device)
     prior_alpha = torch.Tensor(1, num_classes).fill_(1.0).to(device)
     ## training
-    print("Use SGD with 0.9 momentum")
+    logger.info("Use SGD with 0.9 momentum")
     opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
                           list(dec_L.parameters()) + list(dec_phi.parameters()),
                           lr=args.lr, weight_decay=args.wd, momentum=0.9)
     # if config.ds != "cifar10":
-    #     print("Use SGD with 0.9 momentum")
+    #     logger.info("Use SGD with 0.9 momentum")
     #     opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
     #                           list(dec_L.parameters()) + list(dec_phi.parameters()),
     #                           lr=args.lr, weight_decay=args.wd, momentum=0.9)
     # else:
-    #     print("Use Adam.")
+    #     logger.info("Use Adam.")
     #     # opt = torch.optim.Adam(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()), lr=args.lr,
     #     #                        weight_decay=args.wd)
     #     opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
     #                           list(dec_L.parameters()) + list(dec_phi.parameters()),
     #                           lr=args.lr, weight_decay=args.wd)
-    mit = Monitor(num_samples, num_classes)
+    mit = Monitor(num_samples, num_classes, logger)
     d_array = deepcopy(o_array)
     for epoch in range(0, args.ep):
         for features, targets, trues, indexes in train_loader:
@@ -177,13 +174,13 @@ def train_benchmark(config):
             d_array[indexes, :] = new_d.clone().detach()
             o_array[indexes, :] = new_o.clone().detach()
         test_acc = evaluate_benchmark(net, test_X, test_Y, device)
-        print("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
+        logger.info("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
 
 
 def train_realworld(config):
     avg_acc = 0.0
     for k in range(0, 5):
-        print("fold {}".format(k))
+        logger.info("fold {}".format(k))
         train_X, train_Y, train_p_Y, test_X, test_Y = next(extract_data(config))
         num_samples = train_X.shape[0]
         train_X_shape = train_X.shape
@@ -191,28 +188,28 @@ def train_realworld(config):
         num_features = train_X.shape[-1]
         train_X = train_X.view(train_X_shape)
         num_classes = train_Y.shape[-1]
-        with TimeUse("Create Model"):
+        with TimeUse("Create Model", logger):
             net, enc, dec = create_model(args, num_features=num_features, num_classes=num_classes)
             net, enc, dec = map(lambda x: x.to(device), (net, enc, dec))
-        print("Net:\n", net)
-        print("Encoder:\n", enc)
-        print("Decoder:\n", dec)
-        print("The Training Set has {} samples and {} classes".format(num_samples, num_features))
-        print("Average Candidate Labels is {:.4f}".format(train_p_Y.sum().item() / num_samples))
+        logger.info("Net:\n", net)
+        logger.info("Encoder:\n", enc)
+        logger.info("Decoder:\n", dec)
+        logger.info("The Training Set has {} samples and {} classes".format(num_samples, num_features))
+        logger.info("Average Candidate Labels is {:.4f}".format(train_p_Y.sum().item() / num_samples))
         train_loader = create_train_loader(train_X, train_Y, train_p_Y, batch_size=config.bs)
         # warm up
         net, o_array = warm_up_realworld(config, net, train_loader, test_X, test_Y)
         # compute adj matrix
-        print("Compute adj maxtrix or Read.")
-        with TimeUse("Adj Maxtrix"):
+        logger.info("Compute adj maxtrix or Read.")
+        with TimeUse("Adj Maxtrix", logger):
             adj = gen_adj_matrix2(train_X.cpu().numpy(), k=config.knn,
                                   path=os.path.abspath("middle/adjmatrix/" + args.dt + "/" + args.ds + ".npy"))
-        with TimeUse("Adj to Dense"):
+        with TimeUse("Adj to Dense", logger):
             A = adj.to_dense()
-        with TimeUse("Adj to Device"):
+        with TimeUse("Adj to Device", logger):
             adj = adj.to(device)
         # compute gcn embedding
-        with TimeUse("Spmm"):
+        with TimeUse("Spmm", logger):
             embedding = train_X.to(device)
         prior_alpha = torch.Tensor(1, num_classes).fill_(1.0).to(device)
         # training
@@ -253,15 +250,15 @@ def train_realworld(config):
                 d_array[indexes, :] = new_d.clone().detach()
                 o_array[indexes, :] = new_o.clone().detach()
             test_acc = evaluate_realworld(net, test_X, test_Y, device)
-            print("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
+            logger.info("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
         avg_acc = avg_acc + test_acc
-    print("Avg Acc: {:.4f}".format(avg_acc / 5))
+    logger.info("Avg Acc: {:.4f}".format(avg_acc / 5))
 
 
 def train_realworld2(config):
     avg_acc = 0.0
     for k in range(0, 5):
-        print("fold {}".format(k))
+        logger.info("fold {}".format(k))
         train_X, train_Y, train_p_Y, test_X, test_Y = next(extract_data(config))
         num_samples = train_X.shape[0]
         train_X_shape = train_X.shape
@@ -269,28 +266,28 @@ def train_realworld2(config):
         num_features = train_X.shape[-1]
         train_X = train_X.view(train_X_shape)
         num_classes = train_Y.shape[-1]
-        with TimeUse("Create Model"):
+        with TimeUse("Create Model", logger):
             net, enc, dec = create_model(args, num_features=num_features, num_classes=num_classes)
             net, enc, dec = map(lambda x: x.to(device), (net, enc, dec))
-        print("Net:\n", net)
-        print("Encoder:\n", enc)
-        print("Decoder:\n", dec)
-        print("The Training Set has {} samples and {} classes".format(num_samples, num_features))
-        print("Average Candidate Labels is {:.4f}".format(train_p_Y.sum().item() / num_samples))
+        logger.info("Net:\n", net)
+        logger.info("Encoder:\n", enc)
+        logger.info("Decoder:\n", dec)
+        logger.info("The Training Set has {} samples and {} classes".format(num_samples, num_features))
+        logger.info("Average Candidate Labels is {:.4f}".format(train_p_Y.sum().item() / num_samples))
         train_loader = create_train_loader(train_X, train_Y, train_p_Y, batch_size=config.bs)
         # warm up
         net, o_array = warm_up_realworld(config, net, train_loader, test_X, test_Y)
         # compute adj matrix
-        print("Compute adj maxtrix or Read.")
-        with TimeUse("Adj Maxtrix"):
+        logger.info("Compute adj maxtrix or Read.")
+        with TimeUse("Adj Maxtrix", logger):
             adj = gen_adj_matrix2(train_X.cpu().numpy(), k=config.knn,
                                   path=os.path.abspath("middle/adjmatrix/" + args.dt + "/" + args.ds + ".npy"))
-        with TimeUse("Adj to Dense"):
+        with TimeUse("Adj to Dense", logger):
             A = adj.to_dense()
-        with TimeUse("Adj to Device"):
+        with TimeUse("Adj to Device", logger):
             adj = adj.to(device)
         # compute gcn embedding
-        with TimeUse("Spmm"):
+        with TimeUse("Spmm", logger):
             embedding = train_X.to(device)
         prior_alpha = torch.Tensor(1, num_classes).fill_(1.0).to(device)
         # training
@@ -331,9 +328,9 @@ def train_realworld2(config):
             d_array = new_d.clone().detach()
             o_array = new_o.clone().detach()
             test_acc = evaluate_realworld(net, test_X, test_Y, device)
-            print("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
+            logger.info("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
         avg_acc = avg_acc + test_acc
-    print("Avg Acc: {:.4f}".format(avg_acc / 5))
+    logger.info("Avg Acc: {:.4f}".format(avg_acc / 5))
 
 
 # enter
