@@ -33,7 +33,7 @@ def extract_data(config, **args):
             train_dataset = dsets.CIFAR10(root="data/" + config.dt + '/CIFAR10/', train=True,
                                           transform=transforms.Compose([transforms.ToTensor(),
                                                                         transforms.Normalize((0.4914, 0.4822, 0.4465), (
-                                                                        0.2023, 0.1994, 0.2010)), ]), download=False)
+                                                                        0.2023, 0.1994, 0.2010)), ]), download=True)
             test_dataset = dsets.CIFAR10(root="data/" + config.dt + '/CIFAR10/', train=False,
                                          transform=transforms.Compose([transforms.ToTensor(),
                                                                        transforms.Normalize((0.4914, 0.4822, 0.4465), (

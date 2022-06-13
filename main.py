@@ -86,18 +86,18 @@ def train_benchmark(config):
     train_X = train_X.view(train_X_shape)
     num_classes = train_Y.shape[-1]
     with TimeUse("Create Model"):
-        net, enc, dec = create_model(args, num_features=num_features, num_classes=num_classes)
-        net, enc, dec = map(lambda x: x.to(device), (net, enc, dec))
+        net, enc_d, enc_z, dec_L, dec_phi = create_model(args, num_features=num_features, num_classes=num_classes)
+        net, enc_d, enc_z, dec_L, dec_phi = map(lambda x: x.to(device), (net, enc_d, enc_z, dec_L, dec_phi))
         if config.ds != "cifar10":
             partialize_net = mlp_phi(num_features, num_classes)
         else:
             partialize_net = deepcopy(net)
     train_p_Y, avgC = partialize(config, train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y,
                                  model=partialize_net, device=device,
-                                 weight_path=os.path.abspath("weights/" + config.ds + "/" + "400.pt"))
+                                 weight_path=os.path.abspath("partial_weights/" + config.ds + "/" + "400.pt"))
     print("Net:\n", net)
-    print("Encoder:\n", enc)
-    print("Decoder:\n", dec)
+    print("Encoder:\n", enc_d, enc_z)
+    print("Decoder:\n", dec_L, dec_phi)
     print("The Training Set has {} samples and {} classes".format(num_samples, num_features))
     print("Average Candidate Labels is {:.4f}".format(avgC))
     train_loader = create_train_loader(train_X, train_Y, train_p_Y)
@@ -119,47 +119,60 @@ def train_benchmark(config):
     with TimeUse("Spmm"):
         embedding = train_X.to(device)
     prior_alpha = torch.Tensor(1, num_classes).fill_(1.0).to(device)
-    # training
-    if config.ds != "cifar10":
-        print("Use SGD with 0.9 momentum")
-        opt = torch.optim.SGD(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()),
-                              lr=args.lr, weight_decay=args.wd, momentum=0.9)
-    else:
-        print("Use Adam.")
-        opt = torch.optim.Adam(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()), lr=args.lr,
-                               weight_decay=args.wd)
+    ## training
+    print("Use SGD with 0.9 momentum")
+    opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
+                          list(dec_L.parameters()) + list(dec_phi.parameters()),
+                          lr=args.lr, weight_decay=args.wd, momentum=0.9)
+    # if config.ds != "cifar10":
+    #     print("Use SGD with 0.9 momentum")
+    #     opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
+    #                           list(dec_L.parameters()) + list(dec_phi.parameters()),
+    #                           lr=args.lr, weight_decay=args.wd, momentum=0.9)
+    # else:
+    #     print("Use Adam.")
+    #     # opt = torch.optim.Adam(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()), lr=args.lr,
+    #     #                        weight_decay=args.wd)
+    #     opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
+    #                           list(dec_L.parameters()) + list(dec_phi.parameters()),
+    #                           lr=args.lr, weight_decay=args.wd)
     mit = Monitor(num_samples, num_classes)
     d_array = deepcopy(o_array)
     for epoch in range(0, args.ep):
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
             _, outputs = net(features)
-            _, alpha = enc(embedding[indexes, :])   # embedding
-            s_alpha = F.softmax(alpha, dim=1)
-            revised_alpha = torch.zeros_like(targets)
-            revised_alpha[o_array[indexes, :] > 0] = 1.0
-            s_alpha = s_alpha * revised_alpha
-            s_alpha_sum = s_alpha.clone().detach().sum(dim=1, keepdim=True)
-            s_alpha = s_alpha / s_alpha_sum + 1e-2      # the label distribution
-            L_d, new_d = partial_loss(alpha, o_array[indexes, :], None)
-            alpha = torch.exp(alpha / 4)
+            # encoder for d
+            _, alpha = enc_d(embedding[indexes, :])   # embedding
+            # L_d, new_d = partial_loss(alpha, o_array[indexes, :], None)
+            alpha = torch.exp(alpha / 2)
             alpha = F.hardtanh(alpha, min_val=1e-2, max_val=30)
             L_alpha = alpha_loss(alpha, prior_alpha)
-            dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
+            # dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
+            dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(alpha)
             d = dirichlet_sample_machine.rsample()
-            x_hat = dec(d)
-            x_hat = x_hat.view(features.shape)
+            # encoder for z
+            z_mu, z_log_var = enc_z(features, d)
+            normal_sample_machine = torch.distributions.normal.Normal(z_mu, torch.exp(z_log_var / 2))
+            z = normal_sample_machine.rsample()
+            # decoder for A and L
+            partial_label_hat = dec_L(d)
+            partial_label_hat = torch.sigmoid(partial_label_hat)
             A_hat = F.softmax(dot_product_decode(d), dim=1)
-            L_recx = 0.01 * F.mse_loss(x_hat, features)
-            L_recy = 0.01 * F.binary_cross_entropy_with_logits(d, targets)
-            L_recA = F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
+            # decoder for x (phi)
+            x_hat = dec_phi(z, d)
+            # x_hat = x_hat.view(features.shape)
+            L_recx = 0.1 * F.mse_loss(x_hat, features)
+            L_recy = 0.1 * F.binary_cross_entropy_with_logits(partial_label_hat, targets)
+            L_recA = 0.1 * F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
             L_rec = L_recx + L_recy + L_recA
             L_o, new_o = partial_loss(outputs, d_array[indexes, :], None)
-            L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
+            # L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
+            L = config.alpha * L_rec + config.beta * L_alpha + config.theta * L_o
             opt.zero_grad()
             L.backward()
             opt.step()
-            new_d = revised_target(d, new_d)
+            new_d = revised_target(d, o_array[indexes, :])
             new_d = config.correct * new_d + (1 - config.correct) * o_array[indexes, :]
             d_array[indexes, :] = new_d.clone().detach()
             o_array[indexes, :] = new_o.clone().detach()
