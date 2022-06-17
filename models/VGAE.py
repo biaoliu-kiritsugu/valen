@@ -198,6 +198,7 @@ class Decoder_L(nn.Module):
         self.layer4 = nn.Sequential(nn.Linear(hidden_dim, num_classes),
                                     nn.ELU(),
                                     nn.Dropout(1-keep_prob))
+        self.sigmoid = nn.Sigmoid()
         # self.fc_out = nn.Linear(hidden_dim, num_classes)
         self._init_weight()
 
@@ -213,7 +214,8 @@ class Decoder_L(nn.Module):
         # features_hat = self.fc_out(h1)
         h2 = self.layer3(d)
         h3 = self.layer4(h2)
-        labels_hat = h3
+        labels_hat = self.sigmoid(h3)
+        # labels_hat = h3
         # adj_hat = dot_product_decode(d)
         # return features_hat, labels_hat, adj_hat
         return labels_hat

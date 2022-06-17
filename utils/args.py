@@ -26,7 +26,7 @@ def extract_args():
     # loss paramters
     parser.add_argument('--alpha', '-alpha', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     parser.add_argument('--beta', '-beta', type=float, default=1,help = 'balance parameter of the loss function (default=1.0)')
-    parser.add_argument('--lambda', '-lambda', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
+    # parser.add_argument('--lambda', '-lambda', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     parser.add_argument('--gamma', '-gamma', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     parser.add_argument('--theta', '-theta', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     parser.add_argument('--sigma', '-sigma', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')

@@ -4,21 +4,34 @@ import numpy as np
 
 def partial_loss(output1, target, true, eps=1e-12):
     output = F.softmax(output1, dim=1)
-    l = target * torch.log(output+eps)
+    l = target * torch.log(output)
     loss = (-torch.sum(l)) / l.size(0)
 
     revisedY = target.clone()
     revisedY[revisedY > 0]  = 1
-    revisedY = revisedY * (output.clone().detach())
-    revisedY = revisedY / revisedY.sum(dim=1).repeat(revisedY.size(1),1).transpose(0,1)
+    # revisedY = revisedY * (output.clone().detach())
+    revisedY = revisedY * output
+    revisedY = revisedY / (revisedY + eps).sum(dim=1).repeat(revisedY.size(1),1).transpose(0,1)
     new_target = revisedY
 
     return loss, new_target
 
+def out_d_loss(output, d, target, eps=1e-12):
+    revisedY = target.clone()
+    revisedY[revisedY > 0] = 1
+    cur_d = F.softmax(d, dim=1)
+    cur_d = -torch.log(cur_d)
+    cur_out = F.softmax(output, dim=1)
+    revisedY = cur_out * revisedY
+    revisedY = revisedY / (revisedY + eps).sum(dim=1).repeat(revisedY.size(1),1).transpose(0,1)
+    o_d_loss = (cur_d * revisedY).sum() / cur_d.size(0)
+    return o_d_loss
+
 def revised_target(output, target):
     revisedY = target.clone()
     revisedY[revisedY > 0]  = 1
-    revisedY = revisedY * (output.clone().detach())
+    # revisedY = revisedY * (output.clone().detach())
+    revisedY = revisedY * output
     revisedY = revisedY / revisedY.sum(dim=1).repeat(revisedY.size(1),1).transpose(0,1)
     new_target = revisedY
 

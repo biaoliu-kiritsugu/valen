@@ -38,7 +38,8 @@ def get_logger(name=None, dir=None, logFileName=None):
     logger.handlers = []
     # logger.addHandler(std_handler)
     logger.addHandler(file_handler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
+    # logger.setLevel(logging.DEBUG)
     _ALL_LOGGERS[name] = logger
     return logger
 
