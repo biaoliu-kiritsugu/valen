@@ -38,18 +38,26 @@ def extract_data(config, **args):
                                          transform=transforms.Compose([transforms.ToTensor(),
                                                                        transforms.Normalize((0.4914, 0.4822, 0.4465), (
                                                                        0.2023, 0.1994, 0.2010)), ]))
+        data_size = len(train_dataset)
+        train_dataset, valid_dataset = torch.utils.data.random_split(train_dataset,
+                                                                     [int(data_size * 0.9), data_size - int(data_size * 0.9)])
         train_full_loader = data.DataLoader(dataset=train_dataset, batch_size=len(train_dataset), shuffle=True,
                                             num_workers=8)
+        valid_full_loader = data.DataLoader(dataset=valid_dataset, batch_size=len(valid_dataset), shuffle=True,
+                                           num_workers=8)
         test_full_loader = data.DataLoader(dataset=test_dataset, batch_size=len(test_dataset), shuffle=True,
                                            num_workers=8)
         train_X, train_Y = next(iter(train_full_loader))
         train_Y = binarize_class(train_Y)
+        valid_X, valid_Y = next(iter(valid_full_loader))
+        valid_Y = binarize_class(valid_Y)
         test_X, test_Y = next(iter(test_full_loader))
         test_Y = binarize_class(test_Y)
         if config.ds != "cifar10":
             train_X = train_X.view(train_X.shape[0], -1)
+            valid_X = valid_X.view(valid_X.shape[0], -1)
             test_X = test_X.view(test_X.shape[0], -1)
-        yield train_X, train_Y, test_X, test_Y
+        yield train_X, train_Y, test_X, test_Y, valid_X, valid_Y
     if config.dt == "realworld":
         mat_path = "data/realworld/" + config.ds + '.mat'
         k_fold = KFoldDataLoader(mat_path)

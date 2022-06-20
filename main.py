@@ -21,6 +21,8 @@ from models.mlp import mlp, mlp_phi
 
 # settings
 # run device gpu:x or cpu
+from utils.utils_seed import set_seed
+
 args = extract_args()
 device = torch.device("cuda:" + str(args.gpu) if torch.cuda.is_available() else 'cpu')
 logger, save_dir = initLogger(args)
@@ -75,7 +77,9 @@ def warm_up_realworld(config, model, train_loader, test_X, test_Y):
 def train_benchmark(config):
     # data and model
     with TimeUse("Extract Data", logger):
-        train_X, train_Y, test_X, test_Y = next(extract_data(config))
+        set_seed(0)
+        train_X, train_Y, test_X, test_Y, valid_X, valid_Y = next(extract_data(config))
+        set_seed(int(time.time()) % (2 ** 16))
     num_samples = train_X.shape[0]
     train_X_shape = train_X.shape
     train_X = train_X.view((num_samples, -1))
@@ -138,6 +142,8 @@ def train_benchmark(config):
     #                           lr=args.lr, weight_decay=args.wd)
     mit = Monitor(num_samples, num_classes, logger)
     d_array = deepcopy(o_array)
+    best_valid = 0
+    best_test = 0
     for epoch in range(0, args.ep):
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
@@ -196,8 +202,13 @@ def train_benchmark(config):
             new_d = config.correct * new_d + (1 - config.correct) * new_out
             d_array[indexes, :] = new_d.clone().detach()
             # o_array[indexes, :] = new_o.clone().detach()
+        valid_acc = evaluate_benchmark(net, valid_X, valid_Y, device)
         test_acc = evaluate_benchmark(net, test_X, test_Y, device)
-        logger.info("Epoch {}, test acc: {:.4f}".format(epoch, test_acc))
+        if valid_acc > best_valid:
+            best_valid = valid_acc
+            best_test = test_acc
+        logger.info("Epoch {}, valid acc: {:.4f}, test acc: {:.4f}".format(epoch, valid_acc, test_acc))
+    logger.info('early stopping results: valid acc: {:.4f}, test acc: {:.4f}'.format(best_valid, best_test))
 
 
 def train_realworld(config):

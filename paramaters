@@ -1,0 +1,2 @@
+cifar10
+nohup python -u main.py -bs 256 -partial_type random -dt benchmark -ds cifar10 -lr 5e-2 -wd 1e-3 -z_dim 8 -alpha 0.1 -beta 0.01 -gamma 0.01 -theta 1 -sigma 1 -correct 0 -warm_up 10 -gpu 3 &
