@@ -1,4 +1,6 @@
 from copy import deepcopy
+
+from models.convnet import convnet
 from models.linear import linear
 from models.mlp import mlp_feature, mlp_phi
 from models.VGAE import VAE_Bernulli_Decoder, Decoder_L, CONV_Decoder
@@ -33,6 +35,15 @@ def create_model(config, **args):
         dec = VAE_Bernulli_Decoder(args['num_classes'], args['num_features'], args['num_features'])
         return net, enc, dec
         
-    
-
-
+def create_model_for_baseline(config, **args):
+    if config.ds == 'cifar10':
+        net = resnet(depth=32, n_outputs=10)
+    if config.ds in ['mnist', 'kmnist', 'fmnist']:
+        if config.partial_type == 'random':
+            net = mlp_feature(args['num_features'], args['num_features'], args['num_classes'])
+        if config.partial_type == 'feature':
+            # net = mlp_phi(args['num_features'], args['num_classes'])
+            net = mlp_feature(args['num_features'], args['num_features'], args['num_classes'])
+    if config.ds in ['cifar100']:
+        net = convnet(input_channel=3, n_outputs=args['num_classes'], dropout_rate=0.25)
+    return net

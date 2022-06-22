@@ -1,5 +1,6 @@
 # import
 import argparse
+import traceback
 from copy import deepcopy
 from operator import index
 import torch
@@ -379,3 +380,4 @@ if __name__ == "__main__":
                 train_realworld2(args)
     except Exception as e:
         logger.error("Error : " + str(e))
+        logger.error('traceback.format_exc():\n%s' % traceback.format_exc())

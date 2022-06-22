@@ -1,3 +1,4 @@
+import math
 import sys
 import numpy as np
 import torch
@@ -10,6 +11,9 @@ from sklearn.preprocessing import OneHotEncoder
 import random
 from copy import deepcopy
 from datasets.realworld.realworld import KFoldDataLoader, RealWorldData
+from partial_models.resnet import resnet
+from partial_models.resnext import resnext
+from partial_models.linear_mlp_models import mlp_model
 
 
 def extract_data(config, **args):
@@ -38,6 +42,13 @@ def extract_data(config, **args):
                                          transform=transforms.Compose([transforms.ToTensor(),
                                                                        transforms.Normalize((0.4914, 0.4822, 0.4465), (
                                                                        0.2023, 0.1994, 0.2010)), ]))
+        if config.ds == 'cifar100':
+            transform = transforms.Compose(
+                [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))])
+            train_dataset = dsets.CIFAR100(root="data/" + config.dt + '/CIFAR100/',
+                                           train=True, transform=transform, download=True)
+            test_dataset = dsets.CIFAR100(root="data/" + config.dt + '/CIFAR100/', train=False, transform=transform)
+
         data_size = len(train_dataset)
         train_dataset, valid_dataset = torch.utils.data.random_split(train_dataset,
                                                                      [int(data_size * 0.9), data_size - int(data_size * 0.9)])
@@ -53,7 +64,7 @@ def extract_data(config, **args):
         valid_Y = binarize_class(valid_Y)
         test_X, test_Y = next(iter(test_full_loader))
         test_Y = binarize_class(test_Y)
-        if config.ds != "cifar10":
+        if config.ds not in  ["cifar10", "cifar100"]:
             train_X = train_X.view(train_X.shape[0], -1)
             valid_X = valid_X.view(valid_X.shape[0], -1)
             test_X = test_X.view(test_X.shape[0], -1)
@@ -74,15 +85,42 @@ def extract_data(config, **args):
 
 def partialize(config, **args):
     if config.partial_type == 'random':
-        train_Y = args['train_Y']
-        train_p_Y, avgC = random_partialize(train_Y)
+        if config.ds != 'cifar100':
+            train_Y = args['train_Y']
+            train_p_Y, avgC = random_partialize(train_Y)
+        else:
+            train_Y = args['train_Y']
+            train_p_Y, avgC = random_partialize(train_Y, p=0.05)
     if config.partial_type == 'feature':
         train_Y = args['train_Y']
         train_X = args['train_X']
         device = args['device']
-        model = deepcopy(args['model'])
-        weight_path = args['weight_path']
-        train_p_Y, avgC = feature_partialize(train_X, train_Y, model, weight_path, device)
+        # model = deepcopy(args['model'])
+        # weight_path = args['weight_path']
+        partial_batch_size = 100
+        if config.ds == 'cifar10':
+            weight_path = 'partial_weights/checkpoint_c10_resnet.pt'
+            model = resnet(depth=32, num_classes=10)
+            rate = 0.4
+        elif config.ds == 'mnist':
+            weight_path = 'partial_weights/checkpoint_mnist_mlp.pt'
+            model = mlp_model(input_dim=args['dim'], output_dim=10)
+            rate = 0.4
+        elif config.ds == 'kmnist':
+            weight_path = 'partial_weights/checkpoint_kmnist_mlp.pt'
+            model = mlp_model(input_dim=args['dim'], output_dim=10)
+            rate = 0.4
+        elif config.ds == 'fmnist':
+            weight_path = 'partial_weights/checkpoint_fashion_mlp.pt'
+            model = mlp_model(input_dim=args['dim'], output_dim=10)
+            rate = 0.4
+        elif config.ds == 'cifar100':
+            weight_path = 'partial_weights/c100_resnext.pt'
+            model = resnext(cardinality=16, depth=29, num_classes=100)
+            rate = 0.04
+
+        train_p_Y, avgC = feature_partialize(train_X, train_Y, model, weight_path, device,
+                                             rate=rate, batch_size=partial_batch_size)
     return train_p_Y, avgC
 
 
@@ -158,7 +196,7 @@ def random_partialize(y, p=0.5):
     return new_y, avgC
 
 
-def feature_partialize(train_X, train_Y, model, weight_path, device, rate=0.4, batch_size=2000):
+def _feature_partialize(train_X, train_Y, model, weight_path, device, rate=0.4, batch_size=2000):
     with torch.no_grad():
         model = model.to(device)
         model.load_state_dict(torch.load(weight_path, map_location=device))
@@ -174,6 +212,43 @@ def feature_partialize(train_X, train_Y, model, weight_path, device, rate=0.4, b
             partial_rate_array = partial_rate_array / torch.max(partial_rate_array, dim=1, keepdim=True)[0]
             partial_rate_array = partial_rate_array / partial_rate_array.mean(dim=1, keepdim=True) * rate
             partial_rate_array[partial_rate_array > 1.0] = 1.0
+            m = torch.distributions.binomial.Binomial(total_count=1, probs=partial_rate_array)
+            z = m.sample()
+            train_p_Y[torch.where(z == 1)] = 1.0
+            train_p_Y_list.append(train_p_Y)
+        train_p_Y = torch.cat(train_p_Y_list, dim=0)
+        assert train_p_Y.shape[0] == train_X.shape[0]
+    avg_C = torch.sum(train_p_Y) / train_p_Y.size(0)
+    return train_p_Y.cpu(), avg_C.item()
+
+
+def feature_partialize(train_X, train_Y, model, weight_path, device, rate=0.4, batch_size=1000):
+    with torch.no_grad():
+        model = model.to(device)
+        model.load_state_dict(torch.load(weight_path, map_location=device))
+        # model.eval()
+        avg_C = 0
+        train_X, train_Y = train_X.to(device), train_Y.to(device)
+        train_p_Y_list = []
+        # step = train_X.size(0) // batch_size
+        step = math.ceil(train_X.size(0) / batch_size)
+        for i in range(step):
+            low = i * batch_size
+            high = min((i + 1) * batch_size, train_X.size(0))
+            # outputs = model(train_X[i * batch_size:(i + 1) * batch_size])
+            outputs = model(train_X[low: high])
+            # train_p_Y = train_Y[i * batch_size:(i + 1) * batch_size].clone().detach()
+            train_p_Y = train_Y[low: high].clone().detach()
+            partial_rate_array = F.softmax(outputs, dim=1).clone().detach()
+            # partial_rate_array[torch.where(train_Y[i * batch_size:(i + 1) * batch_size] == 1)] = 0
+            partial_rate_array[torch.where(train_Y[low: high] == 1)] = 0
+            partial_rate_array = partial_rate_array / torch.max(partial_rate_array, dim=1, keepdim=True)[0]
+            # partial_rate_array = partial_rate_array / torch.sum(partial_rate_array, dim=1, keepdim=True)
+            partial_rate_array = partial_rate_array / partial_rate_array.mean(dim=1, keepdim=True) * rate
+            partial_rate_array[partial_rate_array > 1.0] = 1.0
+            partial_rate_array = torch.nan_to_num(partial_rate_array, nan=0)
+            # debug_value = partial_rate_array.cpu().numpy()
+            # partial_rate_array[partial_rate_array < 0.0] = 0.0
             m = torch.distributions.binomial.Binomial(total_count=1, probs=partial_rate_array)
             z = m.sample()
             train_p_Y[torch.where(z == 1)] = 1.0

@@ -5,4 +5,7 @@ nohup/
 data/
 results/
 middle/
-
+grab_gpu.py
+train_lws.py
+train_proden.py
+train_rccc.py

@@ -16,6 +16,20 @@ def partial_loss(output1, target, true, eps=1e-12):
 
     return loss, new_target
 
+def proden_loss(output1, target, true, eps=1e-12):
+    output = F.softmax(output1, dim=1)
+    l = target * torch.log(output)
+    loss = (-torch.sum(l)) / l.size(0)
+
+    revisedY = target.clone()
+    revisedY[revisedY > 0] = 1
+    # revisedY = revisedY * (output.clone().detach())
+    revisedY = revisedY * output
+    revisedY = revisedY / (revisedY).sum(dim=1).repeat(revisedY.size(1), 1).transpose(0, 1)
+    new_target = revisedY
+
+    return loss, new_target
+
 def out_d_loss(output, d, target, eps=1e-12):
     revisedY = target.clone()
     revisedY[revisedY > 0] = 1
@@ -95,6 +109,32 @@ def rc_loss(outputs, confidence, index):
     average_loss = - ((final_outputs).sum(dim=1)).mean()
     return average_loss
 
+def lws_loss(outputs, partialY, confidence, index, lw_weight, lw_weight0, epoch_ratio):
+    device = outputs.device
+    onezero = torch.zeros(outputs.shape[0], outputs.shape[1])
+    onezero[partialY > 0] = 1
+    counter_onezero = 1 - onezero
+    onezero = onezero.to(device)
+    counter_onezero = counter_onezero.to(device)
+
+    sig_loss1 = 0.5 * torch.ones(outputs.shape[0], outputs.shape[1])
+    sig_loss1 = sig_loss1.to(device)
+    sig_loss1[outputs < 0] = 1 / (1 + torch.exp(outputs[outputs < 0]))
+    sig_loss1[outputs > 0] = torch.exp(-outputs[outputs > 0]) / (
+        1 + torch.exp(-outputs[outputs > 0]))
+    l1 = confidence[index, :] * onezero * sig_loss1
+    average_loss1 = torch.sum(l1) / l1.size(0)
+
+    sig_loss2 = 0.5 * torch.ones(outputs.shape[0], outputs.shape[1])
+    sig_loss2 = sig_loss2.to(device)
+    sig_loss2[outputs > 0] = 1 / (1 + torch.exp(-outputs[outputs > 0]))
+    sig_loss2[outputs < 0] = torch.exp(
+        outputs[outputs < 0]) / (1 + torch.exp(outputs[outputs < 0]))
+    l2 = confidence[index, :] * counter_onezero * sig_loss2
+    average_loss2 = torch.sum(l2) / l2.size(0)
+
+    average_loss = lw_weight0 * average_loss1 + lw_weight * average_loss2
+    return average_loss, lw_weight0 * average_loss1, lw_weight * average_loss2
 
 def min_loss(output1, target, eps=1e-12):
     output1 = F.softmax(output1, dim=1)
