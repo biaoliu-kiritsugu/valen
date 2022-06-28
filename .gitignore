@@ -6,6 +6,8 @@ data/
 results/
 middle/
 grab_gpu.py
+grab_gpu_realword.py
 train_lws.py
 train_proden.py
 train_rccc.py
+train_d2cnn.py

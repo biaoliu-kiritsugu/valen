@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="OPEN_SSH" host="palm-seu.ml" id="9057699a-300d-44e6-9121-5b62b1da2cf5" port="32200" nameFormat="DESCRIPTIVE" username="liubiao" />
+    </configs>
+  </component>
+</project>

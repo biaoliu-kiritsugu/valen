@@ -80,7 +80,6 @@ def train_benchmark(config):
     with TimeUse("Extract Data", logger):
         set_seed(0)
         train_X, train_Y, test_X, test_Y, valid_X, valid_Y = next(extract_data(config))
-        set_seed(int(time.time()) % (2 ** 16))
     num_samples = train_X.shape[0]
     train_X_shape = train_X.shape
     train_X = train_X.view((num_samples, -1))
@@ -90,16 +89,12 @@ def train_benchmark(config):
     with TimeUse("Create Model", logger):
         net, enc_d, enc_z, dec_L, dec_phi = create_model(args, num_features=num_features, num_classes=num_classes)
         net, enc_d, enc_z, dec_L, dec_phi = map(lambda x: x.to(device), (net, enc_d, enc_z, dec_L, dec_phi))
-        if config.ds != "cifar10":
-            partialize_net = mlp_phi(num_features, num_classes)
-        else:
-            partialize_net = deepcopy(net)
     train_p_Y, avgC = partialize(config, train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y,
-                                 model=partialize_net, device=device,
-                                 weight_path=os.path.abspath("partial_weights/" + config.ds + "/" + "400.pt"))
-    logger.info("Net:\n", net)
-    logger.info("Encoder:\n", enc_d, enc_z)
-    logger.info("Decoder:\n", dec_L, dec_phi)
+                                 dim=num_features, device=device)
+    set_seed(int(time.time()) % (2 ** 16))
+    # logger.info("Net:\n", net)
+    # logger.info("Encoder:\n", enc_d, enc_z)
+    # logger.info("Decoder:\n", dec_L, dec_phi)
     logger.info("The Training Set has {} samples and {} classes".format(num_samples, num_features))
     logger.info("Average Candidate Labels is {:.4f}".format(avgC))
     train_loader = create_train_loader(train_X, train_Y, train_p_Y)
@@ -129,23 +124,13 @@ def train_benchmark(config):
     #                       lr=0.001, weight_decay=0.001)
     opt2 = torch.optim.Adam(list(enc_z.parameters()) + list(dec_phi.parameters()),
                             lr=0.001, weight_decay=0.001)
-    # if config.ds != "cifar10":
-    #     logger.info("Use SGD with 0.9 momentum")
-    #     opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
-    #                           list(dec_L.parameters()) + list(dec_phi.parameters()),
-    #                           lr=args.lr, weight_decay=args.wd, momentum=0.9)
-    # else:
-    #     logger.info("Use Adam.")
-    #     # opt = torch.optim.Adam(list(net.parameters()) + list(enc.parameters()) + list(dec.parameters()), lr=args.lr,
-    #     #                        weight_decay=args.wd)
-    #     opt = torch.optim.SGD(list(net.parameters()) + list(enc_d.parameters()) + list(enc_z.parameters()) +
-    #                           list(dec_L.parameters()) + list(dec_phi.parameters()),
-    #                           lr=args.lr, weight_decay=args.wd)
+
     mit = Monitor(num_samples, num_classes, logger)
     d_array = deepcopy(o_array)
     best_valid = 0
     best_test = 0
     for epoch in range(0, args.ep):
+        net.train()
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
             _, outputs = net(features)
@@ -203,6 +188,7 @@ def train_benchmark(config):
             new_d = config.correct * new_d + (1 - config.correct) * new_out
             d_array[indexes, :] = new_d.clone().detach()
             # o_array[indexes, :] = new_o.clone().detach()
+        net.eval()
         valid_acc = evaluate_benchmark(net, valid_X, valid_Y, device)
         test_acc = evaluate_benchmark(net, test_X, test_Y, device)
         if valid_acc > best_valid:

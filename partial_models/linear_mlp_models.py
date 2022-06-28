@@ -15,7 +15,7 @@ class linear_model(nn.Module):
     def forward(self, x):
         out = x.view(-1, self.num_flat_features(x))
         out = self.linear(out)
-        return out
+        return 0, out
 
     def num_flat_features(self, x):
         size = x.size()[1:]

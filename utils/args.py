@@ -15,7 +15,9 @@ def extract_args():
     parser.add_argument('-bs', help='batch size', type=int, default=256)
     parser.add_argument('-ep', help='number of epochs', type=int, default=500)
     parser.add_argument('-dt', help='type of the dataset', type=str, choices=['benchmark', 'realworld', 'uci'])
-    parser.add_argument('-ds', help='specify a dataset', type=str, choices=['mnist', 'fmnist', 'kmnist', 'cifar10', 'cifar100', 'lost', 'MSRCv2', 'birdac', 'spd', 'LYN'])
+    parser.add_argument('-ds', help='specify a dataset', type=str, choices=['mnist', 'fmnist', 'kmnist', 'cifar10', 'cifar100',
+                                                                            'FG-NET', 'lost', 'MSRCv2', 'Mirflickr', 'BirdSong',
+                                                                            'malagasy', 'Soccer Player', 'Yahoo! News'])
     parser.add_argument('-warm_up', help='number of warm-up epochs', type=int, default=10)
     parser.add_argument('-knn', help='number of knn neighbours', type=int, default=3)
     parser.add_argument('-partial_type', help='flipping strategy', type=str, default='random', choices=['random', 'feature'])

@@ -239,3 +239,29 @@ def MAP_loss(t_o, c_o, r_t, r_c, targets, alpha, beta, gamma):
     return L
 
 
+def dcnn_loss(output, target, teacher, weights, vt, alpha):
+    loss_cr = _cross_entropy(output, target)
+    loss_se = self_entropy(output)
+    loss_STcr = ST_cross_entropy(output, teacher, weights)
+
+    loss = loss_cr + alpha * loss_se + vt * loss_STcr
+
+    return loss
+
+
+def _cross_entropy(prediction, labels):
+    _cross_entropy_singel = -torch.sum((1 - labels) * torch.log((1 - prediction) + 1e-5), dim=1)
+    _cross_entropy_mean = torch.mean(_cross_entropy_singel)
+    return _cross_entropy_mean
+
+
+def self_entropy(prediction):
+    self_entropy_singel = -torch.sum(prediction * torch.log(prediction + 1e-10), dim=1)
+    self_entropy_mean = torch.mean(self_entropy_singel)
+    return self_entropy_mean
+
+
+def ST_cross_entropy(prediction, teacher, weights):
+    cross_entropy_singel = -weights * torch.sum((teacher * torch.log(prediction + 1e-5)), dim=1)
+    cross_entropy_mean = torch.mean(cross_entropy_singel)
+    return cross_entropy_mean

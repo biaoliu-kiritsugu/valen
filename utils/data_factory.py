@@ -10,10 +10,11 @@ import torch.utils.data as data
 from sklearn.preprocessing import OneHotEncoder
 import random
 from copy import deepcopy
-from datasets.realworld.realworld import KFoldDataLoader, RealWorldData
+# from datasets.realworld.realworld import KFoldDataLoader, RealWorldData
 from partial_models.resnet import resnet
 from partial_models.resnext import resnext
 from partial_models.linear_mlp_models import mlp_model
+from utils.realword_dataset import RealwordDataLoader, My_Subset, RealWorldData
 
 
 def extract_data(config, **args):
@@ -70,17 +71,28 @@ def extract_data(config, **args):
             test_X = test_X.view(test_X.shape[0], -1)
         yield train_X, train_Y, test_X, test_Y, valid_X, valid_Y
     if config.dt == "realworld":
-        mat_path = "data/realworld/" + config.ds + '.mat'
-        k_fold = KFoldDataLoader(mat_path)
-        for k in range(0, 5):
-            train_dataset = RealWorldData(k, True, k_fold)
-            test_dataset = RealWorldData(k, False, k_fold)
-            train_X = train_dataset.train_features
-            train_Y = train_dataset.train_labels
-            train_p_Y = train_dataset.train_targets
-            test_X = test_dataset.test_features
-            test_Y = test_dataset.test_labels
-            yield train_X, train_Y, train_p_Y, test_X, test_Y
+        mat_path = "/home/liubiao/datasets/realworld/" + config.ds + '.mat'
+        data_reader = RealwordDataLoader(mat_path)
+        full_dataset = RealWorldData(data_reader)
+        full_data_size = len(full_dataset)
+        test_size, valid_size = int(full_data_size * 0.2), int(full_data_size * 0.2)
+        train_size = full_data_size - test_size - valid_size
+        train_dataset, valid_dataset, test_dataset = \
+            torch.utils.data.random_split(full_dataset, [train_size, valid_size, test_size],
+                                          torch.Generator().manual_seed(42))
+        train_idx, valid_idx, test_idx = train_dataset.indices, valid_dataset.indices, test_dataset.indices
+        train_dataset, valid_dataset, test_dataset = \
+            My_Subset(full_dataset, train_idx), My_Subset(full_dataset, valid_idx), My_Subset(full_dataset, test_idx)
+        train_full_loader = data.DataLoader(dataset=train_dataset, batch_size=len(train_dataset), shuffle=True,
+                                            num_workers=8)
+        valid_full_loader = data.DataLoader(dataset=valid_dataset, batch_size=len(valid_dataset), shuffle=True,
+                                            num_workers=8)
+        test_full_loader = data.DataLoader(dataset=test_dataset, batch_size=len(test_dataset), shuffle=True,
+                                           num_workers=8)
+        train_X, train_Y, _, _, _ = next(iter(train_full_loader))
+        valid_X, _, _, valid_Y, _ = next(iter(valid_full_loader))
+        test_X, _, _, test_Y, _ = next(iter(test_full_loader))
+        yield train_X, train_Y, test_X, test_Y, valid_X, valid_Y
 
 
 def partialize(config, **args):
