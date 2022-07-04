@@ -113,7 +113,7 @@ class Monitor:
 
 def initLogger(args):
     id = str(time.time())
-    save_dir = str(args.loss) + '_final_results/' + '/'.join([str(args.ds), str(args.partial_type)]) + '/' + id
+    save_dir = str(args.loss) + '_tiaocan_results/' + '/'.join([str(args.ds), str(args.partial_type)]) + '/' + id
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
         os.makedirs(save_dir + '/result_data')

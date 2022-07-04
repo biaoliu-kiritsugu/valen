@@ -265,3 +265,23 @@ def ST_cross_entropy(prediction, teacher, weights):
     cross_entropy_singel = -weights * torch.sum((teacher * torch.log(prediction + 1e-5)), dim=1)
     cross_entropy_mean = torch.mean(cross_entropy_singel)
     return cross_entropy_mean
+
+# my test loss
+def proden_loss_(output1, target, true, eps=1e-1):
+    revisedY = target.clone()
+    revisedY[revisedY > 0] = 1
+    output = F.softmax(output1, dim=1)
+    arg_max = torch.argmax(output, dim=1, keepdim=True)
+    num_Y = torch.sum(revisedY, dim=1, keepdim=True).repeat(1, revisedY.size(1))
+    pre_y = torch.zeros_like(target).scatter(1, arg_max, 1)
+    weight = ((1 - eps) * pre_y + eps * (revisedY - pre_y) / num_Y).detach()
+    l = weight * target * torch.log(output)
+    loss = (-torch.sum(l)) / l.size(0)
+
+    # revisedY = target.clone()
+    # revisedY[revisedY > 0] = 1
+    # revisedY = revisedY * (output.clone().detach())
+    revisedY = revisedY * output
+    revisedY = revisedY / (revisedY).sum(dim=1).repeat(revisedY.size(1), 1).transpose(0, 1)
+    new_target = revisedY
+    return loss, new_target

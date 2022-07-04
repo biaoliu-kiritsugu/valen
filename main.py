@@ -9,6 +9,9 @@ from torch.distributions.dirichlet import Dirichlet
 import os
 import pickle
 import time
+
+from torch.optim.lr_scheduler import MultiStepLR
+
 from utils.args import extract_args
 from utils.data_factory import extract_data, partialize, create_train_loader
 from utils.model_factory import create_model
@@ -124,6 +127,7 @@ def train_benchmark(config):
     #                       lr=0.001, weight_decay=0.001)
     opt2 = torch.optim.Adam(list(enc_z.parameters()) + list(dec_phi.parameters()),
                             lr=0.001, weight_decay=0.001)
+    scheduler = MultiStepLR(opt1, milestones=[100, 200], gamma=0.1)
 
     mit = Monitor(num_samples, num_classes, logger)
     d_array = deepcopy(o_array)
@@ -168,12 +172,20 @@ def train_benchmark(config):
             L_recx = 1 * F.mse_loss(x_hat, features)
             L_recy = 1 * F.binary_cross_entropy_with_logits(partial_label_hat, targets)
             L_recA = 0.001 * F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
+            # L_recA = 0 * F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
             # KLD loss of z
             L_kld_z = -torch.sum(1 + z_log_var - z_mu.pow(2) - z_log_var.exp(), dim=1).mean()
-            L_rec = L_recx + L_recy + L_recA
+            # L_rec = L_recx + L_recy + L_recA
             L_o = out_d_loss(outputs, d, targets)
             # L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
-            L = config.alpha * L_rec + \
+            # L = config.alpha * L_rec + \
+            #     config.beta * L_kld_d + \
+            #     config.gamma * L_kld_z + \
+            #     config.theta * L_o + \
+            #     config.sigma * L_d
+            L = config.alpha1 * L_recx + \
+                config.alpha2 * L_recy + \
+                config.alpha3 * L_recA + \
                 config.beta * L_kld_d + \
                 config.gamma * L_kld_z + \
                 config.theta * L_o + \
@@ -188,6 +200,7 @@ def train_benchmark(config):
             new_d = config.correct * new_d + (1 - config.correct) * new_out
             d_array[indexes, :] = new_d.clone().detach()
             # o_array[indexes, :] = new_o.clone().detach()
+        # scheduler.step()
         net.eval()
         valid_acc = evaluate_benchmark(net, valid_X, valid_Y, device)
         test_acc = evaluate_benchmark(net, test_X, test_Y, device)
@@ -360,10 +373,11 @@ if __name__ == "__main__":
         if args.dt == "benchmark":
             train_benchmark(args)
         if args.dt == "realworld":
-            if args.ds not in ['spd', 'LYN']:
-                train_realworld(args)
-            else:
-                train_realworld2(args)
+            train_realworld(args)
+            # if args.ds not in ['spd', 'LYN']:
+            #     train_realworld(args)
+            # else:
+            #     train_realworld2(args)
     except Exception as e:
         logger.error("Error : " + str(e))
         logger.error('traceback.format_exc():\n%s' % traceback.format_exc())

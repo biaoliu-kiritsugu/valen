@@ -13,7 +13,7 @@ def extract_args():
     parser.add_argument('-lr', help='optimizer\'s learning rate', type=float, default=1e-2)
     parser.add_argument('-wd', help='weight decay', type=float, default=1e-4)
     parser.add_argument('-bs', help='batch size', type=int, default=256)
-    parser.add_argument('-ep', help='number of epochs', type=int, default=500)
+    parser.add_argument('-ep', help='number of epochs', type=int, default=250)
     parser.add_argument('-dt', help='type of the dataset', type=str, choices=['benchmark', 'realworld', 'uci'])
     parser.add_argument('-ds', help='specify a dataset', type=str, choices=['mnist', 'fmnist', 'kmnist', 'cifar10', 'cifar100',
                                                                             'FG-NET', 'lost', 'MSRCv2', 'Mirflickr', 'BirdSong',
@@ -27,7 +27,9 @@ def extract_args():
     parser.add_argument('-sampling', help='the sampling times of Dirichlet', type=int, default=1, required=False)
     parser.add_argument('-z_dim', help='the dimensional of laten variate z', type=int, default=128, required=True)
     # loss paramters
-    parser.add_argument('--alpha', '-alpha', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
+    parser.add_argument('--alpha1', '-alpha1', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
+    parser.add_argument('--alpha2', '-alpha2', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
+    parser.add_argument('--alpha3', '-alpha3', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     parser.add_argument('--beta', '-beta', type=float, default=1,help = 'balance parameter of the loss function (default=1.0)')
     # parser.add_argument('--lambda', '-lambda', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     parser.add_argument('--gamma', '-gamma', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
