@@ -434,3 +434,58 @@ class CONV_Decoder_MNIST(nn.Module):
         out = self.final_layer(out)
         out = out.view(out.size(0), -1)
         return out
+
+
+def make_hidden_layers(num_hidden_layers=1, hidden_size=5, prefix="y"):
+    block = nn.Sequential()
+    for i in range(num_hidden_layers):
+        block.add_module(prefix + "_" + str(i),
+                         nn.Sequential(nn.Linear(hidden_size, hidden_size), nn.BatchNorm1d(hidden_size), nn.ReLU()))
+    return block
+
+
+# class Y_Encoder(nn.Module):
+#     def __init__(self, feature_dim = 2, num_classes = 2, num_hidden_layers=1, hidden_size = 5):
+#         super().__init__()
+#         self.y_fc1 = nn.Linear(feature_dim, hidden_size)
+#         self.y_h_layers = make_hidden_layers(num_hidden_layers, hidden_size=hidden_size, prefix="y")
+#         self.y_fc2 = nn.Linear(hidden_size, num_classes)
+#
+#     def forward(self, x):
+#         out = F.relu(self.y_fc1(x))
+#         out = self.y_h_layers(out)
+#         c_logits = self.y_fc2(out)
+#         return c_logits
+
+
+# Encoder/Decoder for realworld dataset
+class Z_Encoder(nn.Module):
+    def __init__(self, feature_dim=2, num_classes=2, num_hidden_layers=1, hidden_size=5, z_dim=2):
+        super().__init__()
+        self.z_fc1 = nn.Linear(feature_dim + num_classes, hidden_size)
+        self.z_h_layers = make_hidden_layers(num_hidden_layers, hidden_size=hidden_size, prefix="z")
+        self.z_fc_mu = nn.Linear(hidden_size, z_dim)  # fc21 for mean of Z
+        self.z_fc_logvar = nn.Linear(hidden_size, z_dim)  # fc22 for log variance of Z
+
+    def forward(self, x, y_hat):
+        out = torch.cat((x, y_hat), dim=1)
+        out = F.relu(self.z_fc1(out))
+        out = self.z_h_layers(out)
+        mu = F.elu(self.z_fc_mu(out))
+        logvar = F.elu(self.z_fc_logvar(out))
+        return mu, logvar
+
+
+class X_Decoder(nn.Module):
+    def __init__(self, feature_dim=2, num_classes=2, num_hidden_layers=1, hidden_size=5, z_dim=1):
+        super().__init__()
+        self.recon_fc1 = nn.Linear(z_dim + num_classes, hidden_size)
+        self.recon_h_layers = make_hidden_layers(num_hidden_layers, hidden_size=hidden_size, prefix="recon")
+        self.recon_fc2 = nn.Linear(hidden_size, feature_dim)
+
+    def forward(self, z, y_hat):
+        out = torch.cat((z, y_hat), dim=1)
+        out = F.relu(self.recon_fc1(out))
+        out = self.recon_h_layers(out)
+        x = self.recon_fc2(out)
+        return x

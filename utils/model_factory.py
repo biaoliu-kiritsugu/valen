@@ -3,7 +3,8 @@ from copy import deepcopy
 from models.convnet import convnet
 from models.linear import linear
 from models.mlp import mlp_feature, mlp_phi
-from models.VGAE import VAE_Bernulli_Decoder, Decoder_L, CONV_Decoder, CONV_Encoder_MNIST, CONV_Decoder_MNIST
+from models.VGAE import VAE_Bernulli_Decoder, Decoder_L, CONV_Decoder, CONV_Encoder_MNIST, CONV_Decoder_MNIST, \
+    Z_Encoder, X_Decoder
 from models.resnet import resnet
 from models.VGAE import CONV_Encoder
 from partial_models.linear_mlp_models import linear_model
@@ -47,9 +48,23 @@ def create_model(config, **args):
         return net, enc_d, enc_z, dec_L, dec_phi
     if config.dt == "realworld":
         net = linear(args['num_features'], args['num_classes'])
-        enc = deepcopy(net)
-        dec = VAE_Bernulli_Decoder(args['num_classes'], args['num_features'], args['num_features'])
-        return net, enc, dec
+        enc_d = deepcopy(net)
+        enc_z = Z_Encoder(feature_dim=args['num_features'],
+                          num_classes=args['num_classes'],
+                          num_hidden_layers=2,
+                          hidden_size=25,
+                          # z_dim=int(args['num_features'] / 10)
+                          z_dim=int(args['num_classes'] * 1.5)
+                          )
+        dec_phi = X_Decoder(feature_dim=args['num_features'],
+                            num_classes=args['num_classes'],
+                            num_hidden_layers=2,
+                            hidden_size=25,
+                            # z_dim=int(args['num_features'] / 10),
+                            z_dim = int(args['num_classes'] * 1.5)
+        )
+        dec_L = Decoder_L(num_classes=args['num_classes'], hidden_dim=128)
+        return net, enc_d, enc_z, dec_L, dec_phi
 
 
 def create_model_for_baseline(config, **args):
