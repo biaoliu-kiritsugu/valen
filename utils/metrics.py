@@ -2,6 +2,19 @@ from utils.utils_algo import to_logits
 import torch
 import torch.nn.functional as F
 
+def accuracy_check(loader, model, device):
+    with torch.no_grad():
+        total, num_samples = 0, 0
+        for images, labels in loader:
+            labels, images = labels.to(device), images.to(device)
+            _, outputs = model(images)
+            outputs = torch.softmax(outputs, dim=1)
+            w, predicted = torch.max(outputs.data, 1)
+            _, y = torch.max(labels.data, 1)
+            total += (predicted == y).sum().item()
+            num_samples += labels.size(0)
+
+    return (total / num_samples)
 
 def evaluate(model, X, Y, device):
     with torch.no_grad():

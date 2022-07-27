@@ -13,12 +13,12 @@ import time
 from torch.optim.lr_scheduler import MultiStepLR
 
 from utils.args import extract_args
-from utils.data_factory import extract_data, partialize, create_train_loader
+from utils.data_factory import extract_data, partialize, create_train_loader, create_test_loader
 from utils.model_factory import create_model
 from utils.utils_graph import gen_adj_matrix2
 from utils.utils_loss import partial_loss, alpha_loss, kl_loss, revised_target, out_d_loss
 from utils.utils_algo import dot_product_decode
-from utils.metrics import evaluate_benchmark, evaluate_realworld
+from utils.metrics import evaluate_benchmark, evaluate_realworld, accuracy_check
 from utils.utils_log import Monitor, TimeUse, initLogger
 from models.linear import linear
 from models.mlp import mlp, mlp_phi
@@ -32,7 +32,7 @@ device = torch.device("cuda:" + str(args.gpu) if torch.cuda.is_available() else 
 logger, save_dir = initLogger(args)
 
 
-def warm_up_benchmark(config, model, train_loader, test_X, test_Y):
+def warm_up_benchmark(config, model, train_loader, test_X, test_Y, test_loader=None):
     opt = torch.torch.optim.SGD(list(model.parameters()), lr=config.lr, weight_decay=config.wd, momentum=0.9)
     partial_weight = train_loader.dataset.train_p_Y.clone().detach().to(device)
     partial_weight = partial_weight / partial_weight.sum(dim=1, keepdim=True)
@@ -46,7 +46,11 @@ def warm_up_benchmark(config, model, train_loader, test_X, test_Y):
             opt.zero_grad()
             L_ce.backward()
             opt.step()
-    test_acc = evaluate_benchmark(model, test_X, test_Y, device)
+    if config.ds not in ['cub200']:
+        test_acc = evaluate_benchmark(model, test_X, test_Y, device)
+    else:
+        test_acc = accuracy_check(test_loader, model, device)
+    # test_acc = evaluate_benchmark(model, test_X, test_Y, device)
     logger.info("After warm up, test acc: {:.4f}".format(test_acc))
     logger.info("Extract feature.")
     feature_extracted = torch.zeros((train_loader.dataset.train_X.shape[0], phi.shape[-1])).to(device)
@@ -99,9 +103,14 @@ def train_benchmark(config):
     # logger.info("Decoder:\n", dec_L, dec_phi)
     logger.info("The Training Set has {} samples and {} classes".format(num_samples, num_features))
     logger.info("Average Candidate Labels is {:.4f}".format(avgC))
-    train_loader = create_train_loader(train_X, train_Y, train_p_Y)
+    # train_loader = create_train_loader(train_X, train_Y, train_p_Y)
+    train_loader = create_train_loader(train_X, train_Y, train_p_Y, batch_size=config.bs)
+    valid_loader = create_test_loader(train_X, train_Y, batch_size=config.bs)
+    test_loader = create_test_loader(train_X, train_Y, batch_size=config.bs)
     # warm up
-    net, feature_extracted, o_array = warm_up_benchmark(config, net, train_loader, test_X, test_Y)
+    net, feature_extracted, o_array = warm_up_benchmark(config, net, train_loader, test_X, test_Y, test_loader)
+    if config.ds in ['cub200']:
+        enc_d = deepcopy(net)
     # if config.partial_type == "feature" and config.ds in ["kmnist", "cifar10"]:
     #     logger.info("Copy Net.")
     #     enc = deepcopy(net)
@@ -201,8 +210,14 @@ def train_benchmark(config):
             # o_array[indexes, :] = new_o.clone().detach()
         scheduler.step()
         net.eval()
-        valid_acc = evaluate_benchmark(net, valid_X, valid_Y, device)
-        test_acc = evaluate_benchmark(net, test_X, test_Y, device)
+        if config.ds not in ['cub200']:
+            valid_acc = evaluate_benchmark(net, valid_X, valid_Y, device)
+            test_acc = evaluate_benchmark(net, test_X, test_Y, device)
+        else:
+            valid_acc = accuracy_check(valid_loader, net, device)
+            test_acc = accuracy_check(test_loader, net, device)
+        # valid_acc = evaluate_benchmark(net, valid_X, valid_Y, device)
+        # test_acc = evaluate_benchmark(net, test_X, test_Y, device)
         if valid_acc > best_valid:
             best_valid = valid_acc
             best_test = test_acc

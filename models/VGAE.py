@@ -347,7 +347,7 @@ class CONV_Decoder(nn.Module):
     def forward(self, z, d):
         out = torch.cat((z, d), dim=1)
         out = self.decoder_input(out)
-        out = out.view(-1, 256, 2, 2)
+        out = out.view(-1, 2048, 2, 2)
         out = self.decoder(out)
         out = self.final_layer(out)
         return out

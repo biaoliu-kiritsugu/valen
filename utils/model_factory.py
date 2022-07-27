@@ -1,5 +1,8 @@
 from copy import deepcopy
 
+import torch
+import torchvision
+
 from models.convnet import convnet
 from models.linear import linear
 from models.mlp import mlp_feature, mlp_phi
@@ -7,6 +10,7 @@ from models.VGAE import VAE_Bernulli_Decoder, Decoder_L, CONV_Decoder, CONV_Enco
     Z_Encoder, X_Decoder
 from models.resnet import resnet
 from models.VGAE import CONV_Encoder
+from models.resnet34 import Resnet34
 from partial_models.linear_mlp_models import linear_model
 
 
@@ -22,8 +26,19 @@ def create_model(config, **args):
             net = resnet(depth=32, n_outputs=args['num_classes'])
         if config.ds in ['cifar100']:
             net = convnet(input_channel=3, n_outputs=args['num_classes'], dropout_rate=0.25)
+        if config.ds in ['cub200']:
+            net = Resnet34(200)
         enc_d = deepcopy(net)
         # for cifar
+        if config.ds in ['cub200']:
+            enc_z = CONV_Encoder(in_channels=3,
+                                 feature_dim=256,
+                                 num_classes=args['num_classes'],
+                                 hidden_dims=[32, 64, 128, 256, 512, 1024, 2048],
+                                 z_dim=config.z_dim)
+            dec_phi = CONV_Decoder(num_classes=args['num_classes'],
+                                   hidden_dims=[2048, 1024, 512, 256, 128, 64, 32],
+                                   z_dim=config.z_dim)
         if config.ds in ['cifar10', 'cifar100']:
             enc_z = CONV_Encoder(in_channels=3,
                                  feature_dim=32,
@@ -68,6 +83,9 @@ def create_model(config, **args):
 
 
 def create_model_for_baseline(config, **args):
+    if config.ds == 'cub200':
+        net = Resnet34(200)
+        return net
     if config.ds == 'cifar10':
         net = resnet(depth=32, n_outputs=10)
     if config.ds in ['mnist', 'kmnist', 'fmnist']:

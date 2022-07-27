@@ -3,6 +3,7 @@ import sys
 import numpy as np
 import torch
 import torch.nn.functional as F
+import torchvision
 import torchvision.transforms as transforms
 import torchvision.datasets as dsets
 import torchvision.models as models
@@ -11,9 +12,13 @@ from sklearn.preprocessing import OneHotEncoder
 import random
 from copy import deepcopy
 # from datasets.realworld.realworld import KFoldDataLoader, RealWorldData
+from torchvision.datasets.folder import pil_loader
+
+from models.resnet34 import Resnet34
 from partial_models.resnet import resnet
 from partial_models.resnext import resnext
 from partial_models.linear_mlp_models import mlp_model
+from utils.dataset_cub import Cub2011
 from utils.realword_dataset import RealwordDataLoader, My_Subset, RealWorldData
 
 
@@ -49,23 +54,51 @@ def extract_data(config, **args):
             train_dataset = dsets.CIFAR100(root="data/" + config.dt + '/CIFAR100/',
                                            train=True, transform=transform, download=True)
             test_dataset = dsets.CIFAR100(root="data/" + config.dt + '/CIFAR100/', train=False, transform=transform)
+        if config.ds == 'cub200':
+            train_transform_list = [
+                transforms.RandomResizedCrop(256),
+                # transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                                     std=(0.229, 0.224, 0.225))
+            ]
+            test_transforms_list = [
+                transforms.Resize(int(256 / 0.875)),
+                transforms.CenterCrop(256),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.485, 0.456, 0.406),
+                                     std=(0.229, 0.224, 0.225))
+            ]
+            train_dataset = Cub2011('~/datasets/benchmark/cub200', train=True,
+                                             transform=transforms.Compose(train_transform_list), loader=pil_loader)
+            test_dataset = Cub2011('~/datasets/benchmark/cub200', train=False,
+                                   transform=transforms.Compose(test_transforms_list), loader=pil_loader)
 
         data_size = len(train_dataset)
         train_dataset, valid_dataset = torch.utils.data.random_split(train_dataset,
-                                                                     [int(data_size * 0.9), data_size - int(data_size * 0.9)])
+                                                                     [int(data_size * 0.9), data_size - int(data_size * 0.9)],
+                                                                     torch.Generator().manual_seed(42))
         train_full_loader = data.DataLoader(dataset=train_dataset, batch_size=len(train_dataset), shuffle=True,
                                             num_workers=8)
         valid_full_loader = data.DataLoader(dataset=valid_dataset, batch_size=len(valid_dataset), shuffle=True,
                                            num_workers=8)
         test_full_loader = data.DataLoader(dataset=test_dataset, batch_size=len(test_dataset), shuffle=True,
                                            num_workers=8)
-        train_X, train_Y = next(iter(train_full_loader))
-        train_Y = binarize_class(train_Y)
-        valid_X, valid_Y = next(iter(valid_full_loader))
-        valid_Y = binarize_class(valid_Y)
-        test_X, test_Y = next(iter(test_full_loader))
-        test_Y = binarize_class(test_Y)
-        if config.ds not in  ["cifar10", "cifar100"]:
+        if config.ds not in ['cub200']:
+            train_X, train_Y = next(iter(train_full_loader))
+            train_Y = binarize_class(train_Y)
+            valid_X, valid_Y = next(iter(valid_full_loader))
+            valid_Y = binarize_class(valid_Y)
+            test_X, test_Y = next(iter(test_full_loader))
+            test_Y = binarize_class(test_Y)
+        else:
+            train_X, train_Y = next(iter(train_full_loader))
+            train_Y = binarize_class_with_num(train_Y, 200)
+            valid_X, valid_Y = next(iter(valid_full_loader))
+            valid_Y = binarize_class_with_num(valid_Y, 200)
+            test_X, test_Y = next(iter(test_full_loader))
+            test_Y = binarize_class_with_num(test_Y, 200)
+        if config.ds not in  ["cifar10", "cifar100", "cub200"]:
             train_X = train_X.view(train_X.shape[0], -1)
             valid_X = valid_X.view(valid_X.shape[0], -1)
             test_X = test_X.view(test_X.shape[0], -1)
@@ -97,7 +130,7 @@ def extract_data(config, **args):
 
 def partialize(config, **args):
     if config.partial_type == 'random':
-        if config.ds != 'cifar100':
+        if config.ds not in ['cifar100', 'cub200']:
             train_Y = args['train_Y']
             train_p_Y, avgC = random_partialize(train_Y)
         else:
@@ -129,6 +162,10 @@ def partialize(config, **args):
         elif config.ds == 'cifar100':
             weight_path = 'partial_weights/c100_resnext.pt'
             model = resnext(cardinality=16, depth=29, num_classes=100)
+            rate = 0.04
+        elif config.ds == 'cub200':
+            weight_path = 'partial_weights/cub200_256.pt'
+            model = Resnet34(200)
             rate = 0.04
 
         train_p_Y, avgC = feature_partialize(train_X, train_Y, model, weight_path, device,
@@ -177,6 +214,22 @@ def create_train_loader(train_X, train_Y, train_p_Y, batch_size=256):
     dl = data.DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=8)
     return dl
 
+def create_test_loader(test_X, test_Y, batch_size=256):
+    class dataset(data.Dataset):
+        def __init__(self, test_X, test_Y):
+            self.test_X = test_X
+            self.test_Y = test_Y
+
+        def __len__(self):
+            return len(self.test_X)
+
+        def __getitem__(self, idx):
+            return self.test_X[idx], self.test_Y[idx]
+
+    ds = dataset(test_X, test_Y)
+    dl = data.DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=8)
+    return dl
+
 
 def create_full_dataloader(dataset, shuffle=True, num_workers=8):
     full_loader = data.DataLoader(dataset=dataset, batch_size=len(dataset), shuffle=shuffle, num_workers=num_workers)
@@ -190,6 +243,23 @@ def binarize_class(y):
     label = enc.transform(label).toarray().astype(np.float32)
     label = torch.from_numpy(label)
     return label
+
+def binarize_class_with_num(y, num_classes=None):
+    # label = y.reshape(len(y), -1)
+    if num_classes != None:
+        fit_data = np.array(range(num_classes)).reshape(-1, 1)
+        enc = OneHotEncoder(categories='auto')
+        enc.fit(fit_data)
+        label = enc.transform(y.reshape(len(y), -1)).toarray().astype(np.float32)
+        label = torch.from_numpy(label)
+        return label
+    else:
+        label = y.reshape(len(y), -1)
+        enc = OneHotEncoder(categories='auto')
+        enc.fit(label)
+        label = enc.transform(label).toarray().astype(np.float32)
+        label = torch.from_numpy(label)
+        return label
 
 
 def random_partialize(y, p=0.5):
@@ -238,6 +308,8 @@ def feature_partialize(train_X, train_Y, model, weight_path, device, rate=0.4, b
     with torch.no_grad():
         model = model.to(device)
         model.load_state_dict(torch.load(weight_path, map_location=device))
+        if weight_path == 'partial_weights/cub200_256.pt':
+            model = model.model
         # model.eval()
         avg_C = 0
         train_X, train_Y = train_X.to(device), train_Y.to(device)

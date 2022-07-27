@@ -39,6 +39,13 @@ nohup python -u train_rccc.py -bs 256 -partial_type random -dt benchmark -ds cif
 nohup python -u train_rccc.py -bs 256 -partial_type random -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss cc -gpu {} &
 nohup python -u train_lws.py -bs 256 -partial_type random -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss lws -gpu {} &
 
+cub200:
+nohup python -u main.py -bs 32 -partial_type random -dt benchmark -ds cub200 -lr 1e-2 -wd 1e-4 -z_dim 64 -alpha1 0.1 -alpha2 0.1 -alpha3 0.1 -beta 0.01 -gamma 0.01 -theta 1 -sigma 1 -correct 0 -warm_up 10 -gpu {} &
+nohup python -u train_proden.py -bs 32 -partial_type random -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss proden -gpu {} &
+nohup python -u train_rccc.py -bs 32 -partial_type random -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss rc -gpu {} &
+nohup python -u train_rccc.py -bs 32 -partial_type random -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss cc -gpu {} &
+nohup python -u train_lws.py -bs 32 -partial_type random -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss lws -gpu {} &
+nohup python -u train_d2cnn.py -bs 32 -partial_type random -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
 
 feature
 mnist:
@@ -47,7 +54,7 @@ nohup python -u train_proden.py -bs 256 -partial_type feature -dt benchmark -ds 
 nohup python -u train_rccc.py -bs 256 -partial_type feature -dt benchmark -ds mnist -ep 500 -lr 1e-2 -wd 1e-4 -loss rc -gpu {} &
 nohup python -u train_rccc.py -bs 256 -partial_type feature -dt benchmark -ds mnist -ep 500 -lr 1e-2 -wd 1e-4 -loss cc -gpu {} &
 nohup python -u train_lws.py -bs 256 -partial_type feature -dt benchmark -ds mnist -ep 500 -lr 1e-2 -wd 1e-4 -loss lws -gpu {} &
-nohup python -u train_d2cnn.py -bs 256 -partial_type random -dt benchmark -ds mnist -ep 500 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
+nohup python -u train_d2cnn.py -bs 256 -partial_type feature -dt benchmark -ds mnist -ep 500 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
 
 kmnist:
 nohup python -u main.py -bs 256 -partial_type feature -dt benchmark -ds cifar10 -lr 5e-2 -wd 1e-3 -z_dim 8 -alpha1 1 -alpha2 0.1 -alpha3 0.01 -beta 0.01 -gamma 0.01 -theta 1 -sigma 5 -correct 0 -warm_up 10 -gpu {} &
@@ -55,7 +62,7 @@ nohup python -u train_proden.py -bs 256 -partial_type feature -dt benchmark -ds 
 nohup python -u train_rccc.py -bs 256 -partial_type feature -dt benchmark -ds kmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss rc -gpu {} &
 nohup python -u train_rccc.py -bs 256 -partial_type feature -dt benchmark -ds kmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss cc -gpu {} &
 nohup python -u train_lws.py -bs 256 -partial_type feature -dt benchmark -ds kmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss lws -gpu {} &
-nohup python -u train_d2cnn.py -bs 256 -partial_type random -dt benchmark -ds kmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
+nohup python -u train_d2cnn.py -bs 256 -partial_type feature -dt benchmark -ds kmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
 
 
 fmnist:
@@ -64,7 +71,7 @@ nohup python -u train_proden.py -bs 256 -partial_type feature -dt benchmark -ds 
 nohup python -u train_rccc.py -bs 256 -partial_type feature -dt benchmark -ds fmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss rc -gpu {} &
 nohup python -u train_rccc.py -bs 256 -partial_type feature -dt benchmark -ds fmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss cc -gpu {} &
 nohup python -u train_lws.py -bs 256 -partial_type feature -dt benchmark -ds fmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss lws -gpu {} &
-nohup python -u train_d2cnn.py -bs 256 -partial_type random -dt benchmark -ds fmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
+nohup python -u train_d2cnn.py -bs 256 -partial_type feature -dt benchmark -ds fmnist -ep 500 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
 
 
 cifar10:
@@ -78,8 +85,16 @@ nohup python -u train_d2cnn.py -bs 256 -partial_type feature -dt benchmark -ds c
 
 cifar100:
 nohup python -u main.py -bs 256 -partial_type feature -dt benchmark -ds cifar100 -lr 1e-2 -wd 1e-3 -z_dim 64 -alpha1 1 -alpha2 0.1 -alpha3 0.01 -beta 0.01 -gamma 0.01 -theta 1 -sigma 5 -correct 0 -warm_up 10 -gpu {} &
-nohup python -u train_proden.py -bs 256 -partial_type random -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss proden -gpu {} &
-nohup python -u train_rccc.py -bs 256 -partial_type random -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss rc -gpu {} &
-nohup python -u train_rccc.py -bs 256 -partial_type random -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss cc -gpu {} &
-nohup python -u train_lws.py -bs 256 -partial_type random -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss lws -gpu {} &
+nohup python -u train_proden.py -bs 256 -partial_type feature -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss proden -gpu {} &
+nohup python -u train_rccc.py -bs 256 -partial_type feature -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss rc -gpu {} &
+nohup python -u train_rccc.py -bs 256 -partial_type feature -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss cc -gpu {} &
+nohup python -u train_lws.py -bs 256 -partial_type feature -dt benchmark -ds cifar100 -ep 500 -lr 1e-2 -wd 1e-3 -loss lws -gpu {} &
 nohup python -u train_d2cnn.py -bs 256 -partial_type feature -dt benchmark -ds cifar10 -ep 500 -lr 5e-2 -wd 1e-3 -loss d2cnn -gpu {} &
+
+cub200:
+
+nohup python -u train_proden.py -bs 32 -partial_type feature -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss proden -gpu {} &
+nohup python -u train_rccc.py -bs 32 -partial_type feature -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss rc -gpu {} &
+nohup python -u train_rccc.py -bs 32 -partial_type feature -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss cc -gpu {} &
+nohup python -u train_lws.py -bs 32 -partial_type feature -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss lws -gpu {} &
+nohup python -u train_d2cnn.py -bs 32 -partial_type feature -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
