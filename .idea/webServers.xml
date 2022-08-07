@@ -2,15 +2,8 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="c28558c9-d981-4cb9-a108-bd71c070383c" name="3090">
+      <webServer id="c28558c9-d981-4cb9-a108-bd71c070383c" name="3090 (project level)">
         <fileTransfer rootFolder="/home/liubiao" accessType="SFTP" host="palm_3090" port="22" sshConfigId="486c37a0-3898-40bd-bd99-717d5e16b42c" sshConfig="liubiao@palm_3090:22 agent" authAgent="true">
-          <advancedOptions>
-            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
-          </advancedOptions>
-        </fileTransfer>
-      </webServer>
-      <webServer id="47a5b046-3ee3-4b37-a2c7-71605d7237ae" name="3080ti">
-        <fileTransfer rootFolder="/home/liubiao" accessType="SFTP" host="palm-seu.ml" port="32200" sshConfigId="9057699a-300d-44e6-9121-5b62b1da2cf5" sshConfig="liubiao@palm-seu.ml:32200 agent" authAgent="true">
           <advancedOptions>
             <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
@@ -21,8 +14,7 @@
       <group>
         <name>valen2</name>
         <servers>
-          <name value="3090" />
-          <name value="3080ti" />
+          <name value="3090 (project level)" />
         </servers>
       </group>
     </groups>

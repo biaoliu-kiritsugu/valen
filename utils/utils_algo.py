@@ -201,3 +201,13 @@ def confidence_update_lw(model, confidence, batchX, batchY, batch_index):
 
         confidence[batch_index, :] = new_weight
         return confidence
+
+def confidence_update_cavl(model, confidence, batchX, batchY, batch_index):
+    with torch.no_grad():
+        _, batch_outputs = model(batchX)
+        cav = (batch_outputs * torch.abs(1 - batch_outputs)) * batchY
+        cav_pred = torch.max(cav, dim=1)[1]
+        gt_label = F.one_hot(cav_pred, batchY.shape[1])  # label_smoothing() could be used to further improve the performance for some datasets
+        confidence[batch_index, :] = gt_label.float()
+
+    return confidence

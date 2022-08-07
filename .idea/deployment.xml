@@ -2,14 +2,7 @@
 <project version="4">
   <component name="PublishConfigData" autoUpload="Always" serverName="valen2" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="3080ti">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/ml_projects/valen" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="3090">
+      <paths name="3090 (project level)">
         <serverdata>
           <mappings>
             <mapping deploy="/ml_projects/valen" local="$PROJECT_DIR$" web="/" />

@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-
+import torch.nn.functional as F
 
 class CONV_Encoder(nn.Module):
     """
@@ -88,19 +88,25 @@ class CONV_Decoder(nn.Module):
         out = self.final_layer(out)
         return out
 
-enc_z = CONV_Encoder(in_channels=3,
-                     feature_dim=256,
-                     num_classes=200,
-                     hidden_dims=[32, 64, 128, 256, 512, 1024, 2048],
-                     z_dim=64)
-X = torch.rand((2, 3, 256, 256))
-D = torch.rand((2, 200))
-mu, log_var = enc_z(X, D)
-# print()
-dec_phi = CONV_Decoder(num_classes=200,
-                       hidden_dims=[2048, 1024, 512, 256, 128, 64, 32],
-                       z_dim=64)
-Z = torch.rand((2, 64))
-D = torch.rand((2, 200))
-out = dec_phi(Z, D)
-print(out.size())
+# enc_z = CONV_Encoder(in_channels=3,
+#                      feature_dim=256,
+#                      num_classes=200,
+#                      hidden_dims=[32, 64, 128, 256, 512, 1024, 2048],
+#                      z_dim=64)
+# X = torch.rand((2, 3, 256, 256))
+# print(X.shape)
+# D = torch.rand((2, 200))
+# mu, log_var = enc_z(X, D)
+# # print()
+# dec_phi = CONV_Decoder(num_classes=200,
+#                        hidden_dims=[2048, 1024, 512, 256, 128, 64, 32],
+#                        z_dim=64)
+# Z = torch.rand((2, 64))
+# D = torch.rand((2, 200))
+# out = dec_phi(Z, D)
+# print(out.size())
+alpha = torch.Tensor(1, 5).fill_(1.0)
+dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(alpha)
+d = dirichlet_sample_machine.rsample()
+print(d, d.sum())
+print(F.softmax(d, dim=1), F.softmax(d, dim=1).sum())

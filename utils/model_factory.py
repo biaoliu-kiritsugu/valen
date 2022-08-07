@@ -99,3 +99,27 @@ def create_model_for_baseline(config, **args):
     if config.dt == 'realworld':
         net = linear_model(input_dim=args['num_features'], output_dim=args['num_classes'])
     return net
+
+
+def create_model_LE(config, **args):
+    # net = mlp_feature(args['num_features'], args['num_features'], args['num_classes'])
+    # net = linear(args['num_features'], args['num_classes'])
+    # enc_d = deepcopy(net)
+    enc_d = mlp_feature(args['num_features'], args['num_features'], args['num_classes'])
+    net = deepcopy(enc_d)
+    enc_z = Z_Encoder(feature_dim=args['num_features'],
+                      num_classes=args['num_classes'],
+                      num_hidden_layers=1,
+                      hidden_size=int(args['num_classes'] * 2),
+                      # z_dim=int(args['num_features'] / 10)
+                      z_dim=int(args['num_classes'] * 1.5)
+                      )
+    dec_phi = X_Decoder(feature_dim=args['num_features'],
+                        num_classes=args['num_classes'],
+                        num_hidden_layers=1,
+                        hidden_size=int(args['num_classes'] * 2),
+                        # z_dim=int(args['num_features'] / 10),
+                        z_dim=int(args['num_classes'] * 1.5)
+                        )
+    dec_L = Decoder_L(num_classes=args['num_classes'], hidden_dim=int(args['num_classes'] * 1.5))
+    return net, enc_d, enc_z, dec_L, dec_phi

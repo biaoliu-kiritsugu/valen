@@ -12,3 +12,5 @@ train_lws.py
 train_proden.py
 train_rccc.py
 train_d2cnn.py
+train_cavl.py
+train_proden_DA.py

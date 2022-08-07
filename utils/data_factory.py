@@ -231,6 +231,24 @@ def create_test_loader(test_X, test_Y, batch_size=256):
     return dl
 
 
+def create_loader_LE(features, logical_label, label_distribution, batch_size=256):
+    class dataset(data.Dataset):
+        def __init__(self, features, logical_label, label_distribution):
+            self.features = features
+            self.logical_label = logical_label
+            self.label_distribution = label_distribution
+
+        def __len__(self):
+            return len(self.features)
+
+        def __getitem__(self, idx):
+            return self.features[idx], self.logical_label[idx], self.label_distribution[idx], idx
+
+    ds = dataset(features, logical_label, label_distribution)
+    dl = data.DataLoader(ds, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=8)
+    return dl
+
+
 def create_full_dataloader(dataset, shuffle=True, num_workers=8):
     full_loader = data.DataLoader(dataset=dataset, batch_size=len(dataset), shuffle=shuffle, num_workers=num_workers)
     return full_loader

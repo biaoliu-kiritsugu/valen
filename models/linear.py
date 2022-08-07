@@ -13,4 +13,4 @@ class linear(nn.Module):
 
     def forward(self, x):
         x = self.L1(x)
-        return x
+        return 0, x

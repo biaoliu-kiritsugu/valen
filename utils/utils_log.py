@@ -127,7 +127,21 @@ def initLogger(args):
 
     return logger, save_dir
 
+def initLogger_LE(args):
+    id = str(time.time())
+    # if args.dt == 'benchmark':
+    #     save_dir = str(args.loss) + '_final_results_LE/' + '/'.join([str(args.ds), str(args.partial_type)]) + '/' + id
+    # if args.dt == 'realworld':
+    #     save_dir = str(args.loss) + '_final_results_LE/' + '/'.join(['realworld', str(args.ds)]) + '/' + id
+    save_dir = 'final_results_LE/' + id
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
+    logfilename = id + '.log'
+    logger = thelog.get_logger('expanded valen', save_dir, logfilename)
+    logger.info('Parameters : ' + '\n'.join(f'{k}={v}' for k, v in vars(args).items()))
+
+    return logger, save_dir
 
 
 

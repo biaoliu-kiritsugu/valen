@@ -2,6 +2,14 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+
+def d_loss_LE(output1, target, true, eps=1e-12):
+    output = F.softmax(output1, dim=1)
+    l = target * torch.log(output)
+    loss = (-torch.sum(l)) / l.size(0)
+
+    return loss, output
+
 def partial_loss(output1, target, true, eps=1e-12):
     output = F.softmax(output1, dim=1)
     l = target * torch.log(output)
@@ -40,6 +48,16 @@ def out_d_loss(output, d, target, eps=1e-12):
     revisedY = revisedY / (revisedY + eps).sum(dim=1).repeat(revisedY.size(1),1).transpose(0,1)
     o_d_loss = (cur_d * revisedY).sum() / cur_d.size(0)
     return o_d_loss
+
+def out_d_loss_LE(output, d, eps=1e-12):
+    output = F.sigmoid(output)
+    output = F.softmax(output, dim=1)
+    cur_d = F.softmax(d, dim=1)
+    cur_d = -torch.log(cur_d)
+    # revisedY = cur_out * revisedY
+    # revisedY = revisedY / (revisedY + eps).sum(dim=1).repeat(revisedY.size(1),1).transpose(0,1)
+    o_d_loss = (cur_d * output).sum() / cur_d.size(0)
+    return o_d_loss, output
 
 def revised_target(output, target):
     revisedY = target.clone()
