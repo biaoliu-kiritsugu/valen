@@ -5,6 +5,7 @@ nohup/
 data/
 results/
 middle/
+partial_weights/
 grab_gpu.py
 grab_gpu_realword.py
 grab_gpu_scm.py
@@ -14,3 +15,5 @@ train_rccc.py
 train_d2cnn.py
 train_cavl.py
 train_proden_DA.py
+test.py
+task_list

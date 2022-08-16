@@ -98,3 +98,8 @@ nohup python -u train_rccc.py -bs 32 -partial_type feature -dt benchmark -ds cub
 nohup python -u train_rccc.py -bs 32 -partial_type feature -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss cc -gpu {} &
 nohup python -u train_lws.py -bs 32 -partial_type feature -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss lws -gpu {} &
 nohup python -u train_d2cnn.py -bs 32 -partial_type feature -dt benchmark -ds cub200 -ep 150 -lr 1e-2 -wd 1e-4 -loss d2cnn -gpu {} &
+
+
+data augmentation:
+
+nohup python -u main_data_aug.py -bs 256 -partial_type random -dt benchmark -ds cifar10 -lr 5e-2 -wd 1e-3 -z_dim 8 -alpha1 0.1 -alpha2 0.1 -alpha3 0.1 -beta 0.01 -gamma 0.01 -theta 1 -sigma 1 -correct 0 -warm_up 10 -gpu {} &

@@ -1,15 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="valen2" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="3080ti" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
-      <paths name="3090 (project level)">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/ml_projects/valen" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="liubiao@localhost:6000">
+      <paths name="3080ti">
         <serverdata>
           <mappings>
             <mapping deploy="/ml_projects/valen" local="$PROJECT_DIR$" web="/" />

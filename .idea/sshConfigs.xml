@@ -2,7 +2,7 @@
 <project version="4">
   <component name="SshConfigs">
     <configs>
-      <sshConfig authType="OPEN_SSH" host="scm" id="b3ff13cb-457f-4404-bb13-b83fdaba2101" port="18600" nameFormat="DESCRIPTIVE" username="root" />
+      <sshConfig authType="OPEN_SSH" host="scm" id="b3ff13cb-457f-4404-bb13-b83fdaba2101" port="33124" nameFormat="DESCRIPTIVE" username="root" />
       <sshConfig authType="OPEN_SSH" connectionConfig="{&quot;serverAliveInterval&quot;:300}" host="scm2" id="19b53e02-9d9d-4d08-840f-4850e58bb070" port="29687" nameFormat="DESCRIPTIVE" username="root" />
     </configs>
   </component>

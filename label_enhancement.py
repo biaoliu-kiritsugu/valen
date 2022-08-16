@@ -167,8 +167,9 @@ def label_enhancement(config):
         logger.info("Epoch {}, results : {}".format(epoch, results))
         logger.info("Epoch {}, loss : {}".format(epoch, ave_loss))
         # logger.info("{}".format(d_array))
-    saved_result = np.array(results).reshape((-1, 1))
-    savemat('final_results_LE/Results/VALEN_' + dataset + '.mat', {'Result': saved_result})
+    print(results)
+    # saved_result = np.array(results).reshape((-1, 1))
+    # savemat('final_results_LE/Results/VALEN_' + dataset + '.mat', {'Result': saved_result})
 
 
 # enter

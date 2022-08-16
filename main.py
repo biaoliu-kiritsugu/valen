@@ -105,8 +105,8 @@ def train_benchmark(config):
     logger.info("Average Candidate Labels is {:.4f}".format(avgC))
     # train_loader = create_train_loader(train_X, train_Y, train_p_Y)
     train_loader = create_train_loader(train_X, train_Y, train_p_Y, batch_size=config.bs)
-    valid_loader = create_test_loader(train_X, train_Y, batch_size=config.bs)
-    test_loader = create_test_loader(train_X, train_Y, batch_size=config.bs)
+    valid_loader = create_test_loader(valid_X, valid_Y, batch_size=config.bs)
+    test_loader = create_test_loader(test_X, test_Y, batch_size=config.bs)
     # warm up
     net, feature_extracted, o_array = warm_up_benchmark(config, net, train_loader, test_X, test_Y, test_loader)
     if config.ds in ['cub200']:

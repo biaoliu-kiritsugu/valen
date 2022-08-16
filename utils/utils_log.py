@@ -114,9 +114,9 @@ class Monitor:
 def initLogger(args):
     id = str(time.time())
     if args.dt == 'benchmark':
-        save_dir = str(args.loss) + '_final_results/' + '/'.join([str(args.ds), str(args.partial_type)]) + '/' + id
+        save_dir = 'resutls/' + str(args.loss) + '_final_results/' + '/'.join([str(args.ds), str(args.partial_type)]) + '/' + id
     if args.dt == 'realworld':
-        save_dir = str(args.loss) + '_final_results/' + '/'.join(['realworld', str(args.ds)]) + '/' + id
+        save_dir = 'resutls/' + str(args.loss) + '_final_results/' + '/'.join(['realworld', str(args.ds)]) + '/' + id
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
         os.makedirs(save_dir + '/result_data')
@@ -133,7 +133,7 @@ def initLogger_LE(args):
     #     save_dir = str(args.loss) + '_final_results_LE/' + '/'.join([str(args.ds), str(args.partial_type)]) + '/' + id
     # if args.dt == 'realworld':
     #     save_dir = str(args.loss) + '_final_results_LE/' + '/'.join(['realworld', str(args.ds)]) + '/' + id
-    save_dir = 'final_results_LE/' + id
+    save_dir = 'resutls/' + 'final_results_LE/' + args.ds + '/' + id
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
