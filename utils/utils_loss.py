@@ -61,8 +61,7 @@ def out_d_loss_DA(output, d, d1, d2, consistency_criterion, epoch, target, eps=1
 
 def out_d_loss_LE(output, d, eps=1e-12):
     output = F.sigmoid(output)
-    output = F.softmax(output, dim=1)
-    cur_d = F.softmax(d, dim=1)
+    cur_d = F.sigmoid(d)
     cur_d = -torch.log(cur_d)
     # revisedY = cur_out * revisedY
     # revisedY = revisedY / (revisedY + eps).sum(dim=1).repeat(revisedY.size(1),1).transpose(0,1)

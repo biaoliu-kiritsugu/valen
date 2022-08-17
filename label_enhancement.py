@@ -73,12 +73,12 @@ def label_enhancement(config):
 
     ## training
     logger.info("Use SGD with 0.9 momentum")
-    # opt1 = torch.optim.SGD(list(dec_L.parameters()) + list(enc_d.parameters())
-    #                        + list(enc_z.parameters()) + list(dec_phi.parameters()),
-    #                        lr=args.lr, weight_decay=args.wd, momentum=0.9)
-    opt1 = torch.optim.Adam(list(dec_L.parameters()) + list(enc_d.parameters())
-                           + list(enc_z.parameters()) + list(dec_phi.parameters()),
-                           lr=args.lr, weight_decay=args.wd)
+    opt1 = torch.optim.SGD(list(dec_L.parameters()) + list(enc_d.parameters())
+                           + list(enc_z.parameters()) + list(dec_phi.parameters()) + list(net.parameters()),
+                           lr=args.lr, weight_decay=args.wd, momentum=0.9)
+    # opt1 = torch.optim.Adam(list(dec_L.parameters()) + list(enc_d.parameters())
+    #                        + list(enc_z.parameters()) + list(dec_phi.parameters()) + list(net.parameters()),
+    #                        lr=args.lr, weight_decay=args.wd)
     scheduler = MultiStepLR(opt1, milestones=[250], gamma=0.1)
 
     # d_array = deepcopy(o_array)
@@ -89,30 +89,24 @@ def label_enhancement(config):
         ave_loss = 0
         for features, targets, trues, indexes in train_loader:
             features, targets, trues = map(lambda x: x.to(device), (features, targets, trues))
-            # _, outputs = net(features)
+            _, outputs = net(features)
             # encoder for d
             _, log_alpha = enc_d(features)  # embedding
             # L_d, new_out = partial_loss(outputs, d_array[indexes, :], None)
             # L_d = F.binary_cross_entropy_with_logits(outputs, targets)
-            logger.debug("log alpha : " + str(log_alpha))
-            log_alpha = F.hardtanh(log_alpha, min_val=-5, max_val=5)
+            L_d = F.binary_cross_entropy_with_logits(outputs, d_array[indexes, :])
+            log_alpha = F.hardtanh(log_alpha, min_val=-1, max_val=1)
             alpha = torch.exp(log_alpha)
-            logger.debug("alpha : " + str(alpha))
-            alpha = F.hardtanh(alpha, min_val=1e-8, max_val=30)
-            logger.debug("hardtanh alpha : " + str(alpha))
+            alpha = F.hardtanh(alpha, min_val=1e-8, max_val=10)
             # KLD loss of D
             L_kld_d = alpha_loss(alpha, prior_alpha)
-            # dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
             dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(alpha)
             d = dirichlet_sample_machine.rsample()
-            # d = F.sigmoid(d)
             # encoder for z
             z_mu, z_log_var = enc_z(features, d)
-            z_log_var = F.hardtanh(z_log_var, min_val=-5, max_val=5)
+            z_log_var = F.hardtanh(z_log_var, min_val=-1, max_val=1)
             z_std = torch.sqrt(torch.exp(z_log_var))
-            z_std = F.hardtanh(z_std, min_val=1e-8, max_val=30)
-            logger.debug("z_mu :\n" + str(z_mu))
-            logger.debug("z_log_var :\n" + str(z_log_var))
+            z_std = F.hardtanh(z_std, min_val=1e-8, max_val=1)
             normal_sample_machine = torch.distributions.normal.Normal(z_mu, z_std)
             z = normal_sample_machine.rsample()
             # decoder for A and L
@@ -126,43 +120,35 @@ def label_enhancement(config):
             L_recx = 1 * F.mse_loss(x_hat, features)
             L_recy = 1 * F.binary_cross_entropy_with_logits(partial_label_hat, targets)
             # d = F.softmax(d, dim=1)
-            d = F.sigmoid(d)
-            L_d = 1 * F.binary_cross_entropy(d, targets)
-            # L_recA = 0.001 * F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
-            # L_recA = 0 * F.mse_loss(A_hat, A[indexes, :][:, indexes].to(device))
+            # d = F.sigmoid(d)
+            # L_o = 1 * F.binary_cross_entropy_with_logits(d, targets)
             # KLD loss of z
             L_kld_z = -torch.sum(1 + z_log_var - z_mu.pow(2) - z_log_var.exp(), dim=1).mean()
             # L_rec = L_recx + L_recy + L_recA
-            # L_o, new_out = out_d_loss_LE(outputs, d)
-            # L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
-            # L = config.alpha * L_rec + \
-            #     config.beta * L_kld_d + \
-            #     config.gamma * L_kld_z + \
-            #     config.theta * L_o + \
-            #     config.sigma * L_d
+            L_o, new_out = out_d_loss_LE(outputs, d)
             L = config.alpha1 * L_recx + \
                 config.alpha2 * L_recy + \
                 config.beta * L_kld_d + \
                 config.gamma * L_kld_z + \
-                config.theta * L_d
-                # config.theta * L_o + \
+                config.theta * L_d + \
+                config.sigma * L_o
                 # config.sigma * L_d
             ave_loss += L
             opt1.zero_grad()
             # opt2.zero_grad()
             L.backward()
-            # torch.nn.utils.clip_grad_norm_(list(enc_d.parameters()) + list(enc_z.parameters()), 5)
+            torch.nn.utils.clip_grad_norm_(list(enc_d.parameters()) + list(enc_z.parameters()), 5)
             opt1.step()
             # opt2.step()
-            # new_d = revised_target(d, o_array[indexes, :])
-            new_d = F.softmax(d, dim=1)
-            # new_d = config.correct * new_d + (1 - config.correct) * new_out
+            new_d = F.sigmoid(d)
+            new_d = config.correct * new_d + (1 - config.correct) * F.sigmoid(outputs)
             d_array[indexes, :] = new_d.clone().detach()
             # o_array[indexes, :] = new_o.clone().detach()
         scheduler.step()
         # d_array = torch.full(logical_label.size(), 1.0 / num_classes).to(device)
         # d_array = label_distribution
-        results = metrics_LE(d_array.cpu().numpy(), label_distribution.numpy())
+        results = metrics_LE(F.softmax(d_array, dim=1).cpu().numpy(), label_distribution.numpy())
+        # results = metrics_LE(d_array.cpu().numpy(), label_distribution.numpy())
         logger.info("Epoch {}, Cheb               Clark                Can                 Kl                 Cos               Intersec".format(epoch))
         logger.info("Epoch {}, results : {}".format(epoch, results))
         logger.info("Epoch {}, loss : {}".format(epoch, ave_loss))

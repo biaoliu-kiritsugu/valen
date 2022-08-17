@@ -34,3 +34,4 @@ for ds in datasets:
                     for t in theta:
                         os.system(task_format.format(ds, l, w, a, a, bg, bg, t))
 
+# python -u -W ignore label_enhancement.py -ds Yeast_spoem -ep 10 -lr 1e-3 -wd 1e-4 -alpha1 1 -alpha2 1 -beta 0.01 -gamma 0.01 -theta 1 -sigma 1 -correct 0.5 -gpu 0"
