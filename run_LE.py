@@ -23,7 +23,7 @@ theta = [1, 1e-1]
 #               " -alpha1 1 -alpha2 1 -beta 0.01 -gamma 0.01 -theta 1 -gpu 0"
 # for dataset in datasets:
 #     os.system(task_format.format(dataset))
-task_format = "python -u label_enhancement.py -ds {} -ep 100 -lr {} -wd {}" \
+task_format = "python -u -W ignore label_enhancement.py -ds {} -ep 100 -lr {} -wd {}" \
               " -alpha1 {} -alpha2 {} -beta {} -gamma {} -theta {} -gpu 0"
 for ds in datasets:
     print(ds)

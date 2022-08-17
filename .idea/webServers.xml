@@ -9,12 +9,20 @@
           </advancedOptions>
         </fileTransfer>
       </webServer>
+      <webServer id="a3062c50-4126-44d7-b60d-7c7ca4d6ad19" name="scm2">
+        <fileTransfer rootFolder="/root/data" accessType="SFTP" host="scm2" port="24530" sshConfigId="19b53e02-9d9d-4d08-840f-4850e58bb070" sshConfig="root@scm2:24530 agent" authAgent="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
     </option>
     <groups>
       <group>
         <name>valen2</name>
         <servers>
           <name value="3080ti" />
+          <name value="scm2" />
         </servers>
       </group>
     </groups>

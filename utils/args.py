@@ -36,6 +36,7 @@ def extract_args():
     parser.add_argument('--theta', '-theta', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     parser.add_argument('--sigma', '-sigma', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     parser.add_argument('--correct', '-correct', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
+    parser.add_argument('--lam', '-lam', type=float, default=1, help = 'balance parameter of the loss function (default=1.0)')
     # model args
     parser.add_argument('-gpu', type=int, default=0)
     args = parser.parse_args()

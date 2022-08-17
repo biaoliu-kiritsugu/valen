@@ -17,7 +17,7 @@ from utils.data_factory import extract_data, partialize, create_train_loader, cr
     create_train_loader_DA, extract_data_DA
 from utils.model_factory import create_model
 from utils.utils_graph import gen_adj_matrix2
-from utils.utils_loss import partial_loss, alpha_loss, kl_loss, revised_target, out_d_loss
+from utils.utils_loss import partial_loss, alpha_loss, kl_loss, revised_target, out_d_loss, out_d_loss_DA
 from utils.utils_algo import dot_product_decode
 from utils.metrics import evaluate_benchmark, evaluate_realworld, accuracy_check
 from utils.utils_log import Monitor, TimeUse, initLogger
@@ -96,6 +96,7 @@ def train_benchmark(config):
     train_X = train_X.view(train_X_shape)
     num_classes = train_Y.shape[-1]
     with TimeUse("Create Model", logger):
+        consistency_criterion = torch.nn.KLDivLoss(reduction='batchmean').cuda()
         net, enc_d, enc_z, dec_L, dec_phi = create_model(args, num_features=num_features, num_classes=num_classes)
         net, enc_d, enc_z, dec_L, dec_phi = map(lambda x: x.to(device), (net, enc_d, enc_z, dec_L, dec_phi))
     train_p_Y, avgC = partialize(config, train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y,
@@ -152,19 +153,33 @@ def train_benchmark(config):
             # _, outputs1 = net(features1)
             # _, outputs2 = net(features2)
             # encoder for d
-            _, log_alpha = enc_d(embedding[indexes, :])  # embedding
+            _, log_alpha = enc_d(features)  # embedding
             L_d, new_out = partial_loss(outputs, d_array[indexes, :], None)
-            logger.debug("log alpha : " + str(log_alpha))
             log_alpha = F.hardtanh(log_alpha, min_val=-5, max_val=5)
             alpha = torch.exp(log_alpha)
-            logger.debug("alpha : " + str(alpha))
             alpha = F.hardtanh(alpha, min_val=1e-8, max_val=30)
-            logger.debug("hardtanh alpha : " + str(alpha))
-            # KLD loss of D
-            L_kld_d = alpha_loss(alpha, prior_alpha)
             # dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
             dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(alpha)
             d = dirichlet_sample_machine.rsample()
+            # features 1
+            _, log_alpha1 = enc_d(features1)  # embedding
+            log_alpha1 = F.hardtanh(log_alpha1, min_val=-5, max_val=5)
+            alpha1 = torch.exp(log_alpha1)
+            alpha1 = F.hardtanh(alpha1, min_val=1e-8, max_val=30)
+            # dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
+            dirichlet_sample_machine1 = torch.distributions.dirichlet.Dirichlet(alpha1)
+            d1 = dirichlet_sample_machine1.rsample()
+            # features 2
+            _, log_alpha2 = enc_d(features2)  # embedding
+            log_alpha2 = F.hardtanh(log_alpha2, min_val=-5, max_val=5)
+            alpha2 = torch.exp(log_alpha2)
+            alpha2 = F.hardtanh(alpha2, min_val=1e-8, max_val=30)
+            # dirichlet_sample_machine = torch.distributions.dirichlet.Dirichlet(s_alpha)
+            dirichlet_sample_machine2 = torch.distributions.dirichlet.Dirichlet(alpha2)
+            d2 = dirichlet_sample_machine2.rsample()
+
+            # KLD loss of D
+            L_kld_d = alpha_loss(alpha, prior_alpha)
             # encoder for z
             z_mu, z_log_var = enc_z(features, d)
             z_log_var = F.hardtanh(z_log_var, min_val=-5, max_val=5)
@@ -190,6 +205,7 @@ def train_benchmark(config):
             L_kld_z = -torch.sum(1 + z_log_var - z_mu.pow(2) - z_log_var.exp(), dim=1).mean()
             # L_rec = L_recx + L_recy + L_recA
             L_o = out_d_loss(outputs, d, targets)
+            L_cons = out_d_loss_DA(d_array[indexes, :], d, d1, d2, consistency_criterion, epoch + config.warm_up, targets)
             # L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
             # L = config.alpha * L_rec + \
             #     config.beta * L_kld_d + \
@@ -202,7 +218,8 @@ def train_benchmark(config):
                 config.beta * L_kld_d + \
                 config.gamma * L_kld_z + \
                 config.theta * L_o + \
-                config.sigma * L_d
+                config.sigma * L_d + \
+                config.lam * L_cons
             opt1.zero_grad()
             opt2.zero_grad()
             L.backward()
