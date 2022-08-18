@@ -17,7 +17,8 @@ from utils.data_factory import extract_data, partialize, create_train_loader, cr
     create_train_loader_DA, extract_data_DA
 from utils.model_factory import create_model
 from utils.utils_graph import gen_adj_matrix2
-from utils.utils_loss import partial_loss, alpha_loss, kl_loss, revised_target, out_d_loss, out_d_loss_DA
+from utils.utils_loss import partial_loss, alpha_loss, kl_loss, revised_target, out_d_loss, out_d_loss_DA, \
+    out_cons_loss_DA
 from utils.utils_algo import dot_product_decode
 from utils.metrics import evaluate_benchmark, evaluate_realworld, accuracy_check
 from utils.utils_log import Monitor, TimeUse, initLogger
@@ -139,7 +140,7 @@ def train_benchmark(config):
     #                       lr=0.001, weight_decay=0.001)
     opt2 = torch.optim.Adam(list(enc_z.parameters()) + list(dec_phi.parameters()),
                             lr=0.001, weight_decay=0.001)
-    scheduler = MultiStepLR(opt1, milestones=[250], gamma=0.1)
+    scheduler = MultiStepLR(opt1, milestones=[150], gamma=0.1)
 
     mit = Monitor(num_samples, num_classes, logger)
     d_array = deepcopy(o_array)
@@ -150,8 +151,8 @@ def train_benchmark(config):
         for features, features1, features2, targets, trues, indexes in train_loader:
             features, features1, features2, targets, trues = map(lambda x: x.to(device), (features, features1, features2, targets, trues))
             _, outputs = net(features)
-            # _, outputs1 = net(features1)
-            # _, outputs2 = net(features2)
+            _, outputs1 = net(features1)
+            _, outputs2 = net(features2)
             # encoder for d
             _, log_alpha = enc_d(features)  # embedding
             L_d, new_out = partial_loss(outputs, d_array[indexes, :], None)
@@ -205,7 +206,8 @@ def train_benchmark(config):
             L_kld_z = -torch.sum(1 + z_log_var - z_mu.pow(2) - z_log_var.exp(), dim=1).mean()
             # L_rec = L_recx + L_recy + L_recA
             L_o = out_d_loss(outputs, d, targets)
-            L_cons = out_d_loss_DA(d_array[indexes, :], d, d1, d2, consistency_criterion, epoch + config.warm_up, targets)
+            L_cons1 = out_d_loss_DA(d_array[indexes, :], d, d1, d2, consistency_criterion)
+            L_cons2 = out_cons_loss_DA(d_array[indexes, :], outputs, outputs1, outputs2, consistency_criterion)
             # L = config.alpha * L_rec + config.beta * L_alpha + config.gamma * L_d + config.theta * L_o
             # L = config.alpha * L_rec + \
             #     config.beta * L_kld_d + \
@@ -219,7 +221,8 @@ def train_benchmark(config):
                 config.gamma * L_kld_z + \
                 config.theta * L_o + \
                 config.sigma * L_d + \
-                config.lam * L_cons
+                config.lam1 * L_cons1 + \
+                config.lam2 * L_cons2
             opt1.zero_grad()
             opt2.zero_grad()
             L.backward()

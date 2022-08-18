@@ -49,15 +49,25 @@ def out_d_loss(output, d, target, eps=1e-12):
     o_d_loss = (cur_d * revisedY).sum() / cur_d.size(0)
     return o_d_loss
 
-def out_d_loss_DA(output, d, d1, d2, consistency_criterion, epoch, target, eps=1e-12):
+def out_d_loss_DA(target, d, d1, d2, consistency_criterion):
     d = F.softmax(d, dim=1)
     d1 = F.softmax(d1, dim=1)
     d2 = F.softmax(d2, dim=1)
-    consist_loss0 = consistency_criterion(d, output)
-    consist_loss1 = consistency_criterion(d1, output)
-    consist_loss2 = consistency_criterion(d2, output)
+    consist_loss0 = consistency_criterion(d, target)
+    consist_loss1 = consistency_criterion(d1, target)
+    consist_loss2 = consistency_criterion(d2, target)
     o_d_loss = (consist_loss0 + consist_loss1 + consist_loss2) / 3
     return o_d_loss
+
+def out_cons_loss_DA(target, output, output1, output2, consistency_criterion):
+    output = F.softmax(output, dim=1)
+    output1 = F.softmax(output1, dim=1)
+    output2 = F.softmax(output2, dim=1)
+    consist_loss0 = consistency_criterion(output, target)
+    consist_loss1 = consistency_criterion(output1, target)
+    consist_loss2 = consistency_criterion(output2, target)
+    loss = (consist_loss0 + consist_loss1 + consist_loss2) / 3
+    return loss
 
 def out_d_loss_LE(output, d, eps=1e-12):
     output = F.sigmoid(output)
