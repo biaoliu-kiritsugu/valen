@@ -123,3 +123,57 @@ def create_model_LE(config, **args):
                         )
     dec_L = Decoder_L(num_classes=args['num_classes'], hidden_dim=int(args['num_classes'] * 1.5))
     return net, enc_d, enc_z, dec_L, dec_phi
+
+
+def create_model_DA(config, **args):
+    if config.dt == "benchmark":
+        if config.ds in ['mnist', 'kmnist', 'fmnist']:
+            if config.partial_type == "random":
+                net = mlp_feature(args['num_features'], args['num_features'], args['num_classes'])
+            if config.partial_type == "feature":
+                # net = mlp_phi(args['num_features'], args['num_classes'])
+                net = mlp_feature(args['num_features'], args['num_features'], args['num_classes'])
+        if config.ds in ['cifar10']:
+            # net = resnet(depth=32, n_outputs=args['num_classes'])
+            net = Resnet34(10)
+            enc_d = Resnet34(10)
+        if config.ds in ['cifar100']:
+            # net = convnet(input_channel=3, n_outputs=args['num_classes'], dropout_rate=0.25)
+            net = Resnet34(100)
+            enc_d = Resnet34(100)
+        if config.ds in ['cub200']:
+            net = Resnet34(200)
+            enc_d = Resnet34(200)
+        # enc_d = deepcopy(net)
+        # for cifar
+        if config.ds in ['cub200']:
+            enc_z = CONV_Encoder(in_channels=3,
+                                 feature_dim=256,
+                                 num_classes=args['num_classes'],
+                                 hidden_dims=[32, 64, 128, 256, 512, 1024, 2048],
+                                 z_dim=config.z_dim)
+            dec_phi = CONV_Decoder(num_classes=args['num_classes'],
+                                   hidden_dims=[2048, 1024, 512, 256, 128, 64, 32],
+                                   z_dim=config.z_dim)
+        if config.ds in ['cifar10', 'cifar100']:
+            enc_z = CONV_Encoder(in_channels=3,
+                                 feature_dim=32,
+                                 num_classes=args['num_classes'],
+                                 hidden_dims=[32, 64, 128, 256],
+                                 z_dim=config.z_dim)
+            # dec = VAE_Bernulli_Decoder(args['num_classes'], args['num_features'], args['num_features'])
+            dec_phi = CONV_Decoder(num_classes=args['num_classes'],
+                                   hidden_dims=[256, 128, 64, 32],
+                                   z_dim=config.z_dim)
+        if config.ds in ['mnist', 'kmnist', 'fmnist']:
+            enc_z = CONV_Encoder_MNIST(in_channels=1,
+                                       feature_dim=28,
+                                       num_classes=args['num_classes'],
+                                       hidden_dims=[32, 64, 128, 256],
+                                       z_dim=config.z_dim)
+            # dec = VAE_Bernulli_Decoder(args['num_classes'], args['num_features'], args['num_features'])
+            dec_phi = CONV_Decoder_MNIST(num_classes=args['num_classes'],
+                                         hidden_dims=[256, 128, 64, 32],
+                                         z_dim=config.z_dim)
+        dec_L = Decoder_L(num_classes=args['num_classes'], hidden_dim=128)
+        return net, enc_d, enc_z, dec_L, dec_phi

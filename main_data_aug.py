@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from utils.args import extract_args
 from utils.data_factory import extract_data, partialize, create_train_loader, create_test_loader, \
     create_train_loader_DA, extract_data_DA
-from utils.model_factory import create_model
+from utils.model_factory import create_model, create_model_DA
 from utils.utils_graph import gen_adj_matrix2
 from utils.utils_loss import partial_loss, alpha_loss, kl_loss, revised_target, out_d_loss, out_d_loss_DA, \
     out_cons_loss_DA
@@ -98,7 +98,7 @@ def train_benchmark(config):
     num_classes = train_Y.shape[-1]
     with TimeUse("Create Model", logger):
         consistency_criterion = torch.nn.KLDivLoss(reduction='batchmean').cuda()
-        net, enc_d, enc_z, dec_L, dec_phi = create_model(args, num_features=num_features, num_classes=num_classes)
+        net, enc_d, enc_z, dec_L, dec_phi = create_model_DA(args, num_features=num_features, num_classes=num_classes)
         net, enc_d, enc_z, dec_L, dec_phi = map(lambda x: x.to(device), (net, enc_d, enc_z, dec_L, dec_phi))
     train_p_Y, avgC = partialize(config, train_X=train_X, train_Y=train_Y, test_X=test_X, test_Y=test_Y,
                                  dim=num_features, device=device)
@@ -140,7 +140,7 @@ def train_benchmark(config):
     #                       lr=0.001, weight_decay=0.001)
     opt2 = torch.optim.Adam(list(enc_z.parameters()) + list(dec_phi.parameters()),
                             lr=0.001, weight_decay=0.001)
-    scheduler = MultiStepLR(opt1, milestones=[150], gamma=0.1)
+    scheduler = MultiStepLR(opt1, milestones=[100, 150], gamma=0.1)
 
     mit = Monitor(num_samples, num_classes, logger)
     d_array = deepcopy(o_array)
