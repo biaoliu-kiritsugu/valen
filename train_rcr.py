@@ -93,9 +93,9 @@ def train_benchmark(config):
 
     confidence = deepcopy(train_loader.dataset.train_p_Y)
     confidence = confidence / confidence.sum(axis=1)[:, None]
-    optimizer = torch.optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=1e-4)
+    optimizer = torch.optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=args.wd)
     # scheduler
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[150, 200], last_epoch=-1)
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 150], last_epoch=-1)
     best_valid = 0
     best_test = 0
     for epoch in range(0, args.ep):
@@ -138,12 +138,12 @@ def train_benchmark(config):
             utils_crc.confidence_update(confidence, y_pred_aug0_probas, y_pred_aug1_probas, y_pred_aug2_probas, targets, indexes)
         scheduler.step()
         net.eval()
-        if config.ds not in ['cub200']:
-            valid_acc = evaluate_benchmark(net, valid_X, valid_Y, device)
-            test_acc = evaluate_benchmark(net, test_X, test_Y, device)
-        else:
-            valid_acc = accuracy_check(valid_loader, net, device)
-            test_acc = accuracy_check(test_loader, net, device)
+        # if config.ds not in ['cub200']:
+        #     valid_acc = evaluate_benchmark(net, valid_X, valid_Y, device)
+        #     test_acc = evaluate_benchmark(net, test_X, test_Y, device)
+        # else:
+        valid_acc = accuracy_check(valid_loader, net, device)
+        test_acc = accuracy_check(test_loader, net, device)
         if valid_acc > best_valid:
             best_valid = valid_acc
             best_test = test_acc
